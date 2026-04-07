@@ -10,7 +10,7 @@
 # the Application's targetRevision in estabilis-platform so $values
 # always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.1.2
+repoVersion: v0.1.3
 
 # Label selector used by the ApplicationSet cluster generator to detect
 # workload clusters. This is the label the estabilis-workload-operator
@@ -27,11 +27,13 @@ components:
 
   kyverno:
     enabled: true
-    # Upstream chart coordinates — content-addressed OCI via ghcr
+    # Upstream chart coordinates — same repo and version as the hub
+    # (estabilis-platform/core/components/kyverno) so both sides stay
+    # in lockstep. Bump together.
     chart:
-      repoURL: ghcr.io/kyverno/charts
+      repoURL: https://kyverno.github.io/kyverno
       chart: kyverno
-      targetRevision: 3.4.3
+      targetRevision: 3.7.1
     # Destination on the workload cluster
     namespace: kyverno
     # Values file read from THIS repo as $values (multi-source Application)
