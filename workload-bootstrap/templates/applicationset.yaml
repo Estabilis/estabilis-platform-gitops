@@ -41,6 +41,19 @@ spec:
       destination:
         server: "{{ `{{server}}` }}"
         namespace: {{ $component.namespace | quote }}
+      {{- /*
+        Ignore label/annotation drift on CRDs — matches the hub's
+        kyverno.yaml template. Without this, every sync flaps because
+        mutate.inject-platform-label rewrites CRD metadata after
+        ArgoCD applies it. Set on ALL components for consistency;
+        harmless for components that don't ship CRDs.
+      */}}
+      ignoreDifferences:
+        - group: apiextensions.k8s.io
+          kind: CustomResourceDefinition
+          jqPathExpressions:
+            - .metadata.annotations
+            - .metadata.labels
       syncPolicy:
         {{- toYaml $component.syncPolicy | nindent 8 }}
 {{- end }}

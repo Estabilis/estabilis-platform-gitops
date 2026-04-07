@@ -2,86 +2,158 @@
 # Kyverno values overlay — injected into the upstream Kyverno chart via the
 # multi-source Application rendered by workload-bootstrap.
 #
-# Source: ghcr.io/kyverno/charts/kyverno (version pinned in
+# Source: https://kyverno.github.io/kyverno (version pinned in
 # workload-bootstrap/values.yaml → components.kyverno.chart.targetRevision)
+#
+# IMPORTANT: this file is kept in lockstep with the hub's
+# estabilis-platform/core/components/kyverno/values.yaml. Any production
+# hardening added there MUST be mirrored here so the workload cluster
+# benefits from the same fixes (bitnami image migration, hook removals,
+# webhook cleanup disabled, etc.).
 #
 # Reference: https://kyverno.github.io/kyverno/
 # ============================================================================
 
 # ----------------------------------------------------------------------------
-# Estabilis branding — additive labels on every resource Kyverno renders.
-#
-# IMPORTANT: do NOT override app.kubernetes.io/* keys here. The Kyverno
-# chart uses a fixed set of those labels to build Deployment selectors
-# (which are immutable after creation). Overriding them causes
-# "selector does not match template" on first apply.
-#
-# Only estabilis.io/* keys are safe to add — they're not referenced by
-# any selector, purely additive metadata for operators and policies.
+# Estabilis branding — additive labels only (estabilis.io/*).
+# Do NOT override app.kubernetes.io/* keys here — the Kyverno chart uses
+# them to build immutable Deployment selectors.
 # ----------------------------------------------------------------------------
 customLabels:
+  estabilis.io/managed-by: workload-bootstrap
   estabilis.io/component: kyverno
   estabilis.io/tier: workload-baseline
   estabilis.io/part-of: estabilis-platform
 
-# Note: the `customAnnotations` key is not (yet) a first-class Kyverno value,
-# so provenance annotations are emitted via the workload-bootstrap chart on
-# the ApplicationSet itself and propagated per-object via Kyverno mutate
-# policies (future: tracked for v0.2.x).
+# ----------------------------------------------------------------------------
+# Webhook exclusion — namespaces with label kyverno.io/exclude=true are
+# completely ignored by Kyverno (no admission, no validation, no mutation).
+# Same pattern as the hub for operator consistency.
+# ----------------------------------------------------------------------------
+config:
+  webhooks:
+    namespaceSelector:
+      matchExpressions:
+        - key: kyverno.io/exclude
+          operator: DoesNotExist
 
 # ----------------------------------------------------------------------------
-# Admission controller — baseline sizing for a workload cluster.
-# Tuned conservatively; override per client as needed.
+# Controllers — production-hardened settings mirrored from the hub.
 # ----------------------------------------------------------------------------
 admissionController:
   replicas: 1
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      memory: 512Mi
+  container:
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      capabilities:
+        drop: [ALL]
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+  metricsService:
+    create: true
 
-# Background controller — scans existing resources for policy violations.
 backgroundController:
-  replicas: 1
+  enabled: true
+  backgroundScanInterval: 5m
+  container:
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      capabilities:
+        drop: [ALL]
+      seccompProfile:
+        type: RuntimeDefault
   resources:
     requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      memory: 256Mi
-
-# Cleanup controller — handles TTL / cleanup policies.
-cleanupController:
-  replicas: 1
-  resources:
-    requests:
-      cpu: 50m
+      cpu: 20m
       memory: 64Mi
     limits:
-      memory: 128Mi
+      cpu: 100m
+      memory: 256Mi
+  metricsService:
+    create: true
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups: ["policy"]
+          resources: ["poddisruptionbudgets"]
+          verbs: ["create", "update", "delete", "get", "list"]
+        - apiGroups: ["networking.k8s.io"]
+          resources: ["networkpolicies"]
+          verbs: ["create", "update", "delete", "get", "list"]
+        - apiGroups: [""]
+          resources: ["resourcequotas", "limitranges"]
+          verbs: ["create", "update", "delete", "get", "list"]
 
-# Reports controller — emits PolicyReport CRs from background scans.
-reportsController:
-  replicas: 1
+cleanupController:
+  enabled: true
+  container:
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      capabilities:
+        drop: [ALL]
+      seccompProfile:
+        type: RuntimeDefault
   resources:
     requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
       cpu: 50m
       memory: 128Mi
+  metricsService:
+    create: true
+
+reportsController:
+  enabled: true
+  container:
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      capabilities:
+        drop: [ALL]
+      seccompProfile:
+        type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
     limits:
+      cpu: 100m
       memory: 256Mi
+  metricsService:
+    create: true
 
 # ----------------------------------------------------------------------------
-# Policy reporting — keep reports on by default; they cost little and
-# give observability into what Kyverno is doing.
+# CRITICAL: disable pre-delete / cleanup hooks.
+#
+# The Kyverno chart ships with several hook-based Jobs (webhooksCleanup,
+# policyReportsCleanup, etc.) that use the admission-controller
+# ServiceAccount BEFORE the chart creates it, and historically pulled
+# bitnami/kubectl images that no longer exist on Docker Hub. This is the
+# same fix applied to the hub in estabilis-platform@c7216a0.
+#
+# Without this, a clean install fails with ImagePullBackOff on
+# kyverno-clean-reports / kyverno-hook-pre-delete.
 # ----------------------------------------------------------------------------
-config:
-  metricsConfig:
-    enable: true
+webhooksCleanup:
+  enabled: false
+
+policyReportsCleanup:
+  enabled: false
 
 # ----------------------------------------------------------------------------
-# No policies shipped in v0.1.0 — this chart only installs the Kyverno
-# engine. Actual ClusterPolicy/Policy resources land in a separate
-# component (workload-kyverno-policies) in a later release.
+# Grafana integration — disabled; metrics are exposed by metricsService
+# and scraped independently. No bundled Grafana dashboards.
 # ----------------------------------------------------------------------------
+grafana:
+  enabled: false
