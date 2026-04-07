@@ -22,7 +22,7 @@
 customLabels:
   estabilis.io/component: kyverno
   estabilis.io/tier: workload-baseline
-  estabilis.io/platform: "Estabilis Platform"
+  estabilis.io/part-of: estabilis-platform
 
 # Note: the `customAnnotations` key is not (yet) a first-class Kyverno value,
 # so provenance annotations are emitted via the workload-bootstrap chart on
