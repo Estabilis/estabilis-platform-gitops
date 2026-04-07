@@ -7,7 +7,6 @@ kind: ApplicationSet
 metadata:
   name: workload-{{ $name }}
   namespace: argocd
-  {{- include "estabilis.metadata" $root | nindent 2 }}
 spec:
   # Re-render on generator changes + cluster label changes
   generators:
@@ -19,10 +18,12 @@ spec:
     metadata:
       name: "workload-{{ $name }}-{{ `{{name}}` }}"
       labels:
-        {{- include "estabilis.labels" $root | nindent 8 }}
+        # Context label only — identifies which workload cluster this
+        # Application targets. Useful for filtering in ArgoCD UI. All
+        # branding (managed-by, platform, version, etc.) is applied to
+        # the TARGET namespace via managedNamespaceMetadata below,
+        # mirroring platform-root convention.
         estabilis.io/workload-cluster: "{{ `{{name}}` }}"
-      annotations:
-        {{- include "estabilis.annotations" $root | nindent 8 }}
     spec:
       project: default
       sources:
@@ -55,6 +56,7 @@ spec:
             - .metadata.annotations
             - .metadata.labels
       syncPolicy:
+        {{- include "workload-bootstrap.managedNamespaceMetadata" $root | nindent 8 }}
         {{- toYaml $component.syncPolicy | nindent 8 }}
 {{- end }}
 {{- end }}

@@ -10,7 +10,7 @@
 # the Application's targetRevision in estabilis-platform so $values
 # always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.1.5
+repoVersion: v0.1.6
 
 # Label selector used by the ApplicationSet cluster generator to detect
 # workload clusters. This is the label the estabilis-workload-operator
