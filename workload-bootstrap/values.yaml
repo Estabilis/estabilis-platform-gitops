@@ -10,7 +10,15 @@
 # the Application's targetRevision in estabilis-platform so $values
 # always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.1.6
+repoVersion: v0.1.7
+
+# Version of estabilis-platform (the HUB-side repo) that rendered this chart.
+# Passed as a helm parameter by the parent Application
+# (estabilis-platform/bootstrap/platform-root/templates/workload-bootstrap.yaml).
+# Used for the estabilis.io/platform-version annotation on workload namespaces
+# — distinct from workload-bootstrap-version (this chart's own Chart.yaml),
+# which tracks the GitOps layer. "unknown" is the standalone/render fallback.
+platformVersion: unknown
 
 # Label selector used by the ApplicationSet cluster generator to detect
 # workload clusters. This is the label the estabilis-workload-operator

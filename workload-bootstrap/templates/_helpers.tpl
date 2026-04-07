@@ -9,7 +9,8 @@
 */}}
 {{- define "workload-bootstrap.estabilisNamespaceAnnotations" -}}
 estabilis.io/platform: "Estabilis Platform"
-estabilis.io/platform-version: {{ .Chart.Version | quote }}
+estabilis.io/platform-version: {{ .Values.platformVersion | quote }}
+estabilis.io/workload-bootstrap-version: {{ .Chart.Version | quote }}
 estabilis.io/website: "https://estabilis.com"
 estabilis.io/source: "https://github.com/Estabilis/estabilis-platform-gitops"
 estabilis.io/support: "ops@estabilis.com"
