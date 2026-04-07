@@ -1,0 +1,94 @@
+{{- if .Values.policies.restrict_volume_types.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-volume-types
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Restrict Volume Types
+    policies.kyverno.io/description: >-
+      Restricts pod volumes to safe types only: configMap, secret, emptyDir,
+      persistentVolumeClaim, downwardAPI, and projected. Other volume types
+      such as hostPath or nfs can be used to bypass security controls.
+spec:
+  validationFailureAction: {{ .Values.policies.restrict_volume_types.action | default "Audit" }}
+  background: true
+  rules:
+    - name: restrict-volumes-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Only configMap, secret, emptyDir, persistentVolumeClaim, downwardAPI, and projected volume types are allowed."
+        foreach:
+          - list: "request.object.spec.volumes[]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{`{{ element.keys(@) }}`}}"
+                    operator: AnyNotIn
+                    value:
+                      - name
+                      - configMap
+                      - secret
+                      - emptyDir
+                      - persistentVolumeClaim
+                      - downwardAPI
+                      - projected
+    - name: restrict-volumes-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Only configMap, secret, emptyDir, persistentVolumeClaim, downwardAPI, and projected volume types are allowed."
+        foreach:
+          - list: "request.object.spec.template.spec.volumes[]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{`{{ element.keys(@) }}`}}"
+                    operator: AnyNotIn
+                    value:
+                      - name
+                      - configMap
+                      - secret
+                      - emptyDir
+                      - persistentVolumeClaim
+                      - downwardAPI
+                      - projected
+    - name: restrict-volumes-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Only configMap, secret, emptyDir, persistentVolumeClaim, downwardAPI, and projected volume types are allowed."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.volumes[]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{`{{ element.keys(@) }}`}}"
+                    operator: AnyNotIn
+                    value:
+                      - name
+                      - configMap
+                      - secret
+                      - emptyDir
+                      - persistentVolumeClaim
+                      - downwardAPI
+                      - projected
+{{- end }}

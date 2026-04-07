@@ -1,0 +1,70 @@
+{{- if .Values.policies.restrict_automount_sa_token.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-automount-sa-token
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Restrict Automount Service Account Token
+    policies.kyverno.io/description: >-
+      Prevents pods from automatically mounting the service account token.
+      Most workloads do not need to interact with the Kubernetes API and
+      auto-mounted tokens can be exploited in case of container compromise.
+      Only applies to client application namespaces.
+spec:
+  validationFailureAction: {{ .Values.policies.restrict_automount_sa_token.action | default "Audit" }}
+  background: true
+  rules:
+    - name: automount-sa-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - "app-*"
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must explicitly set automountServiceAccountToken to false."
+        pattern:
+          spec:
+            automountServiceAccountToken: false
+    - name: automount-sa-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+              namespaces:
+                - "app-*"
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must explicitly set automountServiceAccountToken to false."
+        pattern:
+          spec:
+            template:
+              spec:
+                automountServiceAccountToken: false
+    - name: automount-sa-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+              namespaces:
+                - "app-*"
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must explicitly set automountServiceAccountToken to false."
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    automountServiceAccountToken: false
+{{- end }}

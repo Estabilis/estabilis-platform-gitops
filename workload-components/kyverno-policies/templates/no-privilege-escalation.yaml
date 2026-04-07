@@ -1,0 +1,70 @@
+{{- if .Values.policies.no_privilege_escalation.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: no-privilege-escalation
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Disallow Privilege Escalation
+    policies.kyverno.io/description: >-
+      Requires all containers to set allowPrivilegeEscalation=false and runAsNonRoot=true.
+spec:
+  validationFailureAction: {{ .Values.policies.no_privilege_escalation.action | default "Audit" }}
+  background: true
+  rules:
+    - name: deny-privilege-escalation-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must set allowPrivilegeEscalation=false and runAsNonRoot=true."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  allowPrivilegeEscalation: false
+                  runAsNonRoot: true
+    - name: deny-privilege-escalation-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must set allowPrivilegeEscalation=false and runAsNonRoot=true."
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - securityContext:
+                      allowPrivilegeEscalation: false
+                      runAsNonRoot: true
+    - name: deny-privilege-escalation-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must set allowPrivilegeEscalation=false and runAsNonRoot=true."
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - securityContext:
+                          allowPrivilegeEscalation: false
+                          runAsNonRoot: true
+{{- end }}

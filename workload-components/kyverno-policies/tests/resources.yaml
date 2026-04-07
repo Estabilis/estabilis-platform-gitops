@@ -1,0 +1,305 @@
+# ---------------------------------------------------------------------------
+# Test resources for Kyverno policy validation
+# Tests verify that platform namespaces are excluded from policy evaluation
+# and that app namespaces are correctly validated.
+# ---------------------------------------------------------------------------
+
+# --- Namespaces ---
+
+# Platform namespace (should be excluded)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: grafana
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kyverno
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: traefik
+---
+# App namespace (should be validated)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-myapp
+  labels:
+    estabilis.io/managed-by: platform
+    app.kubernetes.io/name: myapp
+    app.kubernetes.io/managed-by: argocd
+    estabilis.io/team: engineering
+    estabilis.io/environment: production
+---
+# App namespace without required labels (should fail validation)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-nolabels
+---
+# Invalid namespace name (should fail validate-namespace-name)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: My_Invalid_NS
+---
+
+# --- Pods in platform namespaces (should be SKIPPED by all policies) ---
+
+# Pod in kube-system — no limits, no probes, latest tag, privileged
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kube-proxy
+  namespace: kube-system
+  labels:
+    app: kube-proxy
+spec:
+  containers:
+    - name: kube-proxy
+      image: registry.k8s.io/kube-proxy:latest
+      securityContext:
+        privileged: true
+        allowPrivilegeEscalation: true
+---
+# Pod in argocd — no limits, no probes
+apiVersion: v1
+kind: Pod
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app: argocd-server
+spec:
+  containers:
+    - name: argocd-server
+      image: quay.io/argoproj/argocd:v2.9.0
+---
+# Pod in cert-manager
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cert-manager-pod
+  namespace: cert-manager
+  labels:
+    app: cert-manager
+spec:
+  containers:
+    - name: cert-manager
+      image: quay.io/jetstack/cert-manager-controller:v1.14.0
+---
+# Pod in grafana
+apiVersion: v1
+kind: Pod
+metadata:
+  name: grafana-pod
+  namespace: grafana
+  labels:
+    app: grafana
+spec:
+  containers:
+    - name: grafana
+      image: grafana/grafana:latest
+---
+# Pod in kyverno
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kyverno-pod
+  namespace: kyverno
+  labels:
+    app: kyverno
+spec:
+  containers:
+    - name: kyverno
+      image: ghcr.io/kyverno/kyverno:latest
+---
+# Pod in traefik
+apiVersion: v1
+kind: Pod
+metadata:
+  name: traefik-pod
+  namespace: traefik
+  labels:
+    app: traefik
+spec:
+  containers:
+    - name: traefik
+      image: traefik:latest
+---
+
+# --- Pods in app namespace (should be VALIDATED) ---
+
+# Compliant pod in app namespace
+apiVersion: v1
+kind: Pod
+metadata:
+  name: compliant-pod
+  namespace: app-myapp
+  labels:
+    app: myapp
+    app.kubernetes.io/name: myapp
+    app.kubernetes.io/managed-by: argocd
+    estabilis.io/team: engineering
+  annotations:
+    estabilis.io/owner: team-engineering
+    estabilis.io/contact: eng@example.com
+spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: app
+      image: myregistry.azurecr.io/myapp@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+      securityContext:
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        capabilities:
+          drop: [ALL]
+        seccompProfile:
+          type: RuntimeDefault
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8080
+        initialDelaySeconds: 10
+      readinessProbe:
+        httpGet:
+          path: /readyz
+          port: 8080
+        initialDelaySeconds: 5
+---
+# Non-compliant pod in app namespace — no limits
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-limits-pod
+  namespace: app-myapp
+  labels:
+    app: nolimits
+spec:
+  containers:
+    - name: app
+      image: myregistry.azurecr.io/myapp:v1.0.0
+---
+# Non-compliant pod — uses latest tag
+apiVersion: v1
+kind: Pod
+metadata:
+  name: latest-tag-pod
+  namespace: app-myapp
+  labels:
+    app: latest
+spec:
+  containers:
+    - name: app
+      image: myregistry.azurecr.io/myapp:latest
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+---
+# Non-compliant pod — privileged
+apiVersion: v1
+kind: Pod
+metadata:
+  name: privileged-pod
+  namespace: app-myapp
+  labels:
+    app: privileged
+spec:
+  containers:
+    - name: app
+      image: myregistry.azurecr.io/myapp:v1.0.0
+      securityContext:
+        privileged: true
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+---
+
+# --- Deployment in platform namespace (should be SKIPPED) ---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-system-deploy
+  namespace: kube-system
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kube-dns
+  template:
+    metadata:
+      labels:
+        app: kube-dns
+    spec:
+      containers:
+        - name: kubedns
+          image: registry.k8s.io/coredns:latest
+---
+
+# --- Deployment in app namespace (should be VALIDATED) ---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-deploy
+  namespace: app-myapp
+  labels:
+    app: myapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: app
+          image: myregistry.azurecr.io/myapp:v1.0.0
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi

@@ -1,0 +1,80 @@
+{{- if .Values.policies.no_latest_tag.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: no-latest-tag
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Disallow Latest Tag
+    policies.kyverno.io/description: >-
+      Requires all container images to have an explicit tag that is not ':latest'.
+spec:
+  validationFailureAction: {{ .Values.policies.no_latest_tag.action | default "Audit" }}
+  background: true
+  rules:
+    - name: require-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "An image tag is required. Images must not use ':latest' or omit the tag."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.image }}`}}"
+                    operator: Equals
+                    value: "*:latest"
+                  - key: "{{`{{ element.image }}`}}"
+                    operator: NotEquals
+                    value: "*:*"
+    - name: require-image-tag-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "An image tag is required. Images must not use ':latest' or omit the tag."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.image }}`}}"
+                    operator: Equals
+                    value: "*:latest"
+                  - key: "{{`{{ element.image }}`}}"
+                    operator: NotEquals
+                    value: "*:*"
+    - name: require-image-tag-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "An image tag is required. Images must not use ':latest' or omit the tag."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.image }}`}}"
+                    operator: Equals
+                    value: "*:latest"
+                  - key: "{{`{{ element.image }}`}}"
+                    operator: NotEquals
+                    value: "*:*"
+{{- end }}

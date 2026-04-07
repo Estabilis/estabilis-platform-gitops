@@ -1,0 +1,175 @@
+{{- if .Values.policies.inject_platform_label.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: inject-platform-label
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Inject Platform Label
+    policies.kyverno.io/description: >-
+      Mutates all resources in platform namespaces to include the label
+      estabilis.io/managed-by=platform. Ensures every resource provisioned
+      by the platform is identifiable regardless of whether the Helm chart
+      or operator sets the label explicitly.
+    policies.kyverno.io/category: Estabilis Platform
+spec:
+  rules:
+    - name: inject-label-namespaced
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Service
+                - ConfigMap
+                - Secret
+                - ServiceAccount
+                - Role
+                - RoleBinding
+                - Job
+                - CronJob
+                - PersistentVolumeClaim
+                - Ingress
+                - NetworkPolicy
+{{- include "kyverno-policies.platform-namespace-match" . }}
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              estabilis.io/managed-by: platform
+    - name: inject-label-namespaces
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+{{- include "kyverno-policies.platform-namespace-names-match" . }}
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              estabilis.io/managed-by: platform
+    - name: inject-label-cluster-scoped
+      match:
+        any:
+          - resources:
+              kinds:
+                - ClusterRole
+                - ClusterRoleBinding
+              selector:
+                matchExpressions:
+                  - key: app.kubernetes.io/part-of
+                    operator: In
+                    values:
+                      - estabilis-workload-operator
+                      - argocd
+                      - cert-manager
+                      - kyverno
+                      - external-secrets
+                      - cloudnative-pg
+                      - traefik
+                      - velero
+                      - trivy-operator
+                      - external-dns
+                      - opencost
+                      - grafana-alloy
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              estabilis.io/managed-by: platform
+{{- end }}
+{{- if .Values.policies.inject_platform_label.enabled }}
+---
+# ---------------------------------------------------------------------------
+# Companion policy: mutate EXISTING workloads.
+#
+# Why a separate policy? `mutateExistingOnPolicyUpdate` is a spec-level
+# (policy-wide) flag in Kyverno v1.x — when set, EVERY rule in the policy
+# must declare `mutate.targets`. The admission-time rules above target
+# Namespace and ClusterRole/Binding, which don't fit the targets schema.
+# Splitting cleanly avoids contorting the existing rules.
+#
+# This policy fires when it is created or updated and sweeps existing
+# Deployments/StatefulSets/DaemonSets in platform namespaces, applying the
+# `estabilis.io/managed-by=platform` label. The background controller path
+# does NOT go through admission webhooks, so it works even for namespaces
+# carrying `kyverno.io/exclude=true`.
+#
+# Requires `apps/v1` patch permissions on the kyverno-background-controller
+# ServiceAccount, granted via background-controller-rbac.yaml in this chart.
+#
+# History: this functionality was removed in commit c4546b8 with an
+# incorrect "complexity" justification, leaving label coverage on fresh
+# clusters at ~30% (admission-time only catches new resources, and excluded
+# namespaces never even reach the webhook). Restored as a dedicated policy
+# in v0.1.35. See estabilis-platform-tools issue #48.
+# ---------------------------------------------------------------------------
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: inject-platform-label-existing
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Inject Platform Label (Existing Workloads)
+    policies.kyverno.io/description: >-
+      Companion to inject-platform-label. Sweeps existing
+      Deployment/StatefulSet/DaemonSet resources in platform namespaces and
+      applies estabilis.io/managed-by=platform via the background controller.
+      Bypasses admission webhook exclusion (kyverno.io/exclude=true).
+    policies.kyverno.io/category: Estabilis Platform
+spec:
+  mutateExistingOnPolicyUpdate: true
+  rules:
+    - name: label-existing-deployments
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+{{- include "kyverno-policies.platform-namespace-match" . }}
+      mutate:
+        targets:
+          - apiVersion: apps/v1
+            kind: Deployment
+        patchStrategicMerge:
+          metadata:
+            labels:
+              estabilis.io/managed-by: platform
+    - name: label-existing-statefulsets
+      match:
+        any:
+          - resources:
+              kinds:
+                - StatefulSet
+{{- include "kyverno-policies.platform-namespace-match" . }}
+      mutate:
+        targets:
+          - apiVersion: apps/v1
+            kind: StatefulSet
+        patchStrategicMerge:
+          metadata:
+            labels:
+              estabilis.io/managed-by: platform
+    - name: label-existing-daemonsets
+      match:
+        any:
+          - resources:
+              kinds:
+                - DaemonSet
+{{- include "kyverno-policies.platform-namespace-match" . }}
+      mutate:
+        targets:
+          - apiVersion: apps/v1
+            kind: DaemonSet
+        patchStrategicMerge:
+          metadata:
+            labels:
+              estabilis.io/managed-by: platform
+{{- end }}

@@ -1,0 +1,73 @@
+{{- if .Values.policies.drop_all_capabilities.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: drop-all-capabilities
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Drop All Capabilities
+    policies.kyverno.io/description: >-
+      Requires all containers to explicitly drop ALL Linux capabilities.
+      Dropping all capabilities and only adding back specific ones follows
+      the principle of least privilege.
+spec:
+  validationFailureAction: {{ .Values.policies.drop_all_capabilities.action | default "Audit" }}
+  background: true
+  rules:
+    - name: drop-all-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must drop ALL capabilities."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: ALL
+                    operator: AnyNotIn
+                    value: "{{`{{ element.securityContext.capabilities.drop || '' }}`}}"
+    - name: drop-all-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must drop ALL capabilities."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: ALL
+                    operator: AnyNotIn
+                    value: "{{`{{ element.securityContext.capabilities.drop || '' }}`}}"
+    - name: drop-all-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must drop ALL capabilities."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: ALL
+                    operator: AnyNotIn
+                    value: "{{`{{ element.securityContext.capabilities.drop || '' }}`}}"
+{{- end }}

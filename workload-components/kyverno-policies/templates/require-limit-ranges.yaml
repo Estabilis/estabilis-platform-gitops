@@ -1,0 +1,43 @@
+{{- if .Values.policies.require_limit_ranges.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-limit-ranges
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Require Limit Ranges
+    policies.kyverno.io/description: >-
+      Validates that every namespace has a LimitRange defined.
+      LimitRanges are managed by the resource-quotas platform component.
+spec:
+  validationFailureAction: {{ .Values.policies.require_limit_ranges.action | default "Audit" }}
+  background: true
+  rules:
+    - name: check-limitrange-exists
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+{{ include "kyverno-policies.excluded-namespace-list" . }}
+                - default
+      context:
+        - name: limitRangeCount
+          apiCall:
+            urlPath: "/api/v1/namespaces/{{`{{request.namespace}}`}}/limitranges"
+            jmesPath: "items | length(@)"
+      validate:
+        message: "Namespace {{`{{request.namespace}}`}} must have a LimitRange. Deploy the resource-quotas component or add a LimitRange manually."
+        deny:
+          conditions:
+            all:
+              - key: "{{`{{ limitRangeCount }}`}}"
+                operator: Equals
+                value: 0
+{{- end }}

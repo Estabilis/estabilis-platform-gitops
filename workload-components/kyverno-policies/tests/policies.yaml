@@ -1,0 +1,2813 @@
+---
+# Source: kyverno-policies/templates/block-client-in-platform-ns.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-client-in-platform-ns
+  annotations:
+    policies.kyverno.io/title: Block Client Deployments in Platform Namespaces
+    policies.kyverno.io/description: >-
+      Prevents workloads with estabilis.io/managed-by=client from being
+      deployed in platform namespaces. Client apps must use app-* namespaces.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: block-client-deployments
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Client workloads (estabilis.io/managed-by=client) cannot be deployed in platform namespaces. Use app-* namespaces."
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.metadata.labels.\"estabilis.io/managed-by\" || '' }}"
+                operator: Equals
+                value: "client"
+---
+# Source: kyverno-policies/templates/default-deny-network-policy.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: default-deny-network-policy
+  annotations:
+    policies.kyverno.io/title: Default Deny Network Policy
+    policies.kyverno.io/description: >-
+      Automatically generates a default-deny NetworkPolicy for each new
+      namespace. This ensures zero-trust networking by default, requiring
+      explicit NetworkPolicy rules to allow traffic.
+spec:
+  background: true
+  rules:
+    - name: generate-default-deny
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+
+      exclude:
+        any:
+          - resources:
+              names:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      generate:
+        generateExisting: true
+        synchronize: true
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        name: default-deny-all
+        namespace: "{{ request.object.metadata.name }}"
+        data:
+          spec:
+            podSelector: {}
+            policyTypes:
+              - Ingress
+              - Egress
+---
+# Source: kyverno-policies/templates/deny-ingress-platform-ns.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-ingress-platform-ns
+  annotations:
+    policies.kyverno.io/title: Deny Ingress in Platform Namespaces
+    policies.kyverno.io/description: >-
+      Prevents creating Ingress resources in platform namespaces to avoid
+      accidental exposure of internal APIs to the public internet.
+      Platform ingress is managed exclusively by the upstream configuration.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: deny-ingress-platform-namespaces
+      match:
+        any:
+          - resources:
+              kinds:
+                - Ingress
+              namespaces:
+                - cert-manager
+                - external-secrets
+                - external-dns
+                - kyverno
+                - grafana
+                - opencost
+                - velero
+                - trivy-system
+                - cnpg-system
+                - kube-state-metrics
+                - node-exporter
+                - policy-reporter
+      validate:
+        message: "Ingress resources are not allowed in platform namespaces. Platform ingress is managed by the upstream configuration."
+        deny: {}
+---
+# Source: kyverno-policies/templates/disallow-adding-capabilities.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-adding-capabilities
+  annotations:
+    policies.kyverno.io/title: Disallow Adding Capabilities
+    policies.kyverno.io/description: >-
+      Prevents containers from adding Linux capabilities beyond the default set.
+      Adding capabilities such as NET_ADMIN or SYS_ADMIN can be used to escalate
+      privileges and break container isolation.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: adding-capabilities-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must not add Linux capabilities."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.capabilities.add || '' | length(@) }}"
+                    operator: GreaterThan
+                    value: 0
+    - name: adding-capabilities-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must not add Linux capabilities."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.capabilities.add || '' | length(@) }}"
+                    operator: GreaterThan
+                    value: 0
+    - name: adding-capabilities-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must not add Linux capabilities."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.capabilities.add || '' | length(@) }}"
+                    operator: GreaterThan
+                    value: 0
+---
+# Source: kyverno-policies/templates/disallow-default-sa.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-default-sa
+  annotations:
+    policies.kyverno.io/title: Disallow Default Service Account
+    policies.kyverno.io/description: >-
+      Prevents pods from using the default ServiceAccount. The default
+      ServiceAccount is automatically created in every namespace and may
+      have more permissions than intended.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: default-sa-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must not use the 'default' ServiceAccount."
+        foreach:
+          - list: "request.object"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ request.object.spec.serviceAccountName || 'default' }}"
+                    operator: Equals
+                    value: "default"
+    - name: default-sa-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must not use the 'default' ServiceAccount."
+        foreach:
+          - list: "request.object"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ request.object.spec.template.spec.serviceAccountName || 'default' }}"
+                    operator: Equals
+                    value: "default"
+    - name: default-sa-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must not use the 'default' ServiceAccount."
+        foreach:
+          - list: "request.object"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ request.object.spec.jobTemplate.spec.template.spec.serviceAccountName || 'default' }}"
+                    operator: Equals
+                    value: "default"
+---
+# Source: kyverno-policies/templates/disallow-host-namespaces.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-namespaces
+  annotations:
+    policies.kyverno.io/title: Disallow Host Namespaces
+    policies.kyverno.io/description: >-
+      Prevents pods from using host PID, IPC, or network namespaces. Sharing
+      host namespaces allows containers to access host-level resources and
+      breaks the isolation boundary.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: host-namespaces-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must not use host PID, IPC, or network namespaces."
+        pattern:
+          spec:
+            =(hostPID): false
+            =(hostIPC): false
+            =(hostNetwork): false
+    - name: host-namespaces-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must not use host PID, IPC, or network namespaces."
+        pattern:
+          spec:
+            template:
+              spec:
+                =(hostPID): false
+                =(hostIPC): false
+                =(hostNetwork): false
+    - name: host-namespaces-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must not use host PID, IPC, or network namespaces."
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    =(hostPID): false
+                    =(hostIPC): false
+                    =(hostNetwork): false
+---
+# Source: kyverno-policies/templates/disallow-host-path.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-path
+  annotations:
+    policies.kyverno.io/title: Disallow Host Path Volumes
+    policies.kyverno.io/description: >-
+      Prevents pods from mounting host filesystem paths via hostPath volumes.
+      HostPath volumes allow containers to access the host filesystem, which
+      can be used to escape the container sandbox.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: host-path-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must not use hostPath volumes."
+        pattern:
+          spec:
+            =(volumes):
+              - X(hostPath): "null"
+    - name: host-path-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must not use hostPath volumes."
+        pattern:
+          spec:
+            template:
+              spec:
+                =(volumes):
+                  - X(hostPath): "null"
+    - name: host-path-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must not use hostPath volumes."
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    =(volumes):
+                      - X(hostPath): "null"
+---
+# Source: kyverno-policies/templates/disallow-host-ports.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-ports
+  annotations:
+    policies.kyverno.io/title: Disallow Host Ports
+    policies.kyverno.io/description: >-
+      Prevents containers from binding to host ports. Using host ports ties a
+      pod to a specific node and opens a port directly on the host network
+      interface, bypassing network policies.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: host-ports-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must not bind to host ports."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.ports[].hostPort || ['0'] }}"
+                    operator: AnyNotIn
+                    value:
+                      - 0
+                      - ""
+    - name: host-ports-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must not bind to host ports."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.ports[].hostPort || ['0'] }}"
+                    operator: AnyNotIn
+                    value:
+                      - 0
+                      - ""
+    - name: host-ports-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must not bind to host ports."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.ports[].hostPort || ['0'] }}"
+                    operator: AnyNotIn
+                    value:
+                      - 0
+                      - ""
+---
+# Source: kyverno-policies/templates/disallow-privileged-containers.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-privileged-containers
+  annotations:
+    policies.kyverno.io/title: Disallow Privileged Containers
+    policies.kyverno.io/description: >-
+      Prevents containers from running in privileged mode. Privileged containers
+      have full access to the host devices and kernel capabilities, effectively
+      removing all container isolation.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: privileged-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must not run in privileged mode."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.privileged || false }}"
+                    operator: Equals
+                    value: true
+    - name: privileged-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must not run in privileged mode."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.privileged || false }}"
+                    operator: Equals
+                    value: true
+    - name: privileged-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must not run in privileged mode."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.privileged || false }}"
+                    operator: Equals
+                    value: true
+---
+# Source: kyverno-policies/templates/drop-all-capabilities.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: drop-all-capabilities
+  annotations:
+    policies.kyverno.io/title: Drop All Capabilities
+    policies.kyverno.io/description: >-
+      Requires all containers to explicitly drop ALL Linux capabilities.
+      Dropping all capabilities and only adding back specific ones follows
+      the principle of least privilege.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: drop-all-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must drop ALL capabilities."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: ALL
+                    operator: AnyNotIn
+                    value: "{{ element.securityContext.capabilities.drop || '' }}"
+    - name: drop-all-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must drop ALL capabilities."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: ALL
+                    operator: AnyNotIn
+                    value: "{{ element.securityContext.capabilities.drop || '' }}"
+    - name: drop-all-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must drop ALL capabilities."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: ALL
+                    operator: AnyNotIn
+                    value: "{{ element.securityContext.capabilities.drop || '' }}"
+---
+# Source: kyverno-policies/templates/generate-pdb.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-pdb
+  annotations:
+    policies.kyverno.io/title: Generate PodDisruptionBudget
+    policies.kyverno.io/description: >-
+      Automatically generates a PodDisruptionBudget for Deployments with
+      2+ replicas to prevent all pods from being evicted simultaneously
+      during node maintenance or cluster autoscaling.
+spec:
+  background: true
+  rules:
+    - name: generate-pdb-for-deployments
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      preconditions:
+        all:
+          - key: "{{ request.object.spec.replicas || '1' }}"
+            operator: GreaterThan
+            value: "1"
+      generate:
+        generateExisting: true
+        synchronize: true
+        apiVersion: policy/v1
+        kind: PodDisruptionBudget
+        name: "{{ request.object.metadata.name }}-pdb"
+        namespace: "{{ request.object.metadata.namespace }}"
+        data:
+          spec:
+            minAvailable: 1
+            selector:
+              matchLabels: "{{ request.object.spec.selector.matchLabels }}"
+---
+# Source: kyverno-policies/templates/inject-pss-labels.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: inject-pss-labels
+  annotations:
+    policies.kyverno.io/title: Inject PSS Labels
+    policies.kyverno.io/description: >-
+      Injects Pod Security Standards (PSS) labels on namespaces.
+      Client namespaces (app-*) get enforce=restricted.
+      Privileged namespaces (node-exporter, trivy-system) get enforce=privileged.
+      All other platform namespaces get enforce=baseline with warn/audit=restricted.
+spec:
+  background: true
+  rules:
+    - name: inject-pss-restricted-client
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - "app-*"
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              pod-security.kubernetes.io/enforce: restricted
+              pod-security.kubernetes.io/enforce-version: latest
+              pod-security.kubernetes.io/audit: restricted
+              pod-security.kubernetes.io/audit-version: latest
+              pod-security.kubernetes.io/warn: restricted
+              pod-security.kubernetes.io/warn-version: latest
+    - name: inject-pss-privileged
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - node-exporter
+                - trivy-system
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              pod-security.kubernetes.io/enforce: privileged
+              pod-security.kubernetes.io/enforce-version: latest
+              pod-security.kubernetes.io/audit: baseline
+              pod-security.kubernetes.io/audit-version: latest
+              pod-security.kubernetes.io/warn: baseline
+              pod-security.kubernetes.io/warn-version: latest
+    - name: inject-pss-baseline-platform
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      exclude:
+        any:
+          - resources:
+              names:
+                - "app-*"
+                - node-exporter
+                - trivy-system
+          - resources:
+              names:
+
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              pod-security.kubernetes.io/enforce: baseline
+              pod-security.kubernetes.io/enforce-version: latest
+              pod-security.kubernetes.io/audit: restricted
+              pod-security.kubernetes.io/audit-version: latest
+              pod-security.kubernetes.io/warn: restricted
+              pod-security.kubernetes.io/warn-version: latest
+---
+# Source: kyverno-policies/templates/inject-security-context.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: inject-security-context
+  annotations:
+    policies.kyverno.io/title: Inject Security Context Defaults
+    policies.kyverno.io/description: >-
+      Automatically injects safe security context defaults on containers that
+      do not already define them. Sets runAsNonRoot, readOnlyRootFilesystem,
+      allowPrivilegeEscalation, capabilities drop ALL, and seccomp profile.
+spec:
+  background: true
+  rules:
+    - name: inject-security-context-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      mutate:
+        foreach:
+          - list: "request.object.spec.containers[]"
+            patchStrategicMerge:
+              spec:
+                containers:
+                  - (name): "{{ element.name }}"
+                    securityContext:
+                      +(runAsNonRoot): true
+                      +(readOnlyRootFilesystem): true
+                      +(allowPrivilegeEscalation): false
+                      +(capabilities):
+                        drop:
+                          - ALL
+                      +(seccompProfile):
+                        type: RuntimeDefault
+    - name: inject-security-context-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      mutate:
+        foreach:
+          - list: "request.object.spec.template.spec.containers[]"
+            patchStrategicMerge:
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - (name): "{{ element.name }}"
+                        securityContext:
+                          +(runAsNonRoot): true
+                          +(readOnlyRootFilesystem): true
+                          +(allowPrivilegeEscalation): false
+                          +(capabilities):
+                            drop:
+                              - ALL
+                          +(seccompProfile):
+                            type: RuntimeDefault
+    - name: inject-security-context-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      mutate:
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.containers[]"
+            patchStrategicMerge:
+              spec:
+                jobTemplate:
+                  spec:
+                    template:
+                      spec:
+                        containers:
+                          - (name): "{{ element.name }}"
+                            securityContext:
+                              +(runAsNonRoot): true
+                              +(readOnlyRootFilesystem): true
+                              +(allowPrivilegeEscalation): false
+                              +(capabilities):
+                                drop:
+                                  - ALL
+                              +(seccompProfile):
+                                type: RuntimeDefault
+---
+# Source: kyverno-policies/templates/no-latest-tag.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: no-latest-tag
+  annotations:
+    policies.kyverno.io/title: Disallow Latest Tag
+    policies.kyverno.io/description: >-
+      Requires all container images to have an explicit tag that is not ':latest'.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "An image tag is required. Images must not use ':latest' or omit the tag."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: Equals
+                    value: "*:latest"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "*:*"
+    - name: require-image-tag-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "An image tag is required. Images must not use ':latest' or omit the tag."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: Equals
+                    value: "*:latest"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "*:*"
+    - name: require-image-tag-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "An image tag is required. Images must not use ':latest' or omit the tag."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: Equals
+                    value: "*:latest"
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "*:*"
+---
+# Source: kyverno-policies/templates/no-privilege-escalation.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: no-privilege-escalation
+  annotations:
+    policies.kyverno.io/title: Disallow Privilege Escalation
+    policies.kyverno.io/description: >-
+      Requires all containers to set allowPrivilegeEscalation=false and runAsNonRoot=true.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: deny-privilege-escalation-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must set allowPrivilegeEscalation=false and runAsNonRoot=true."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  allowPrivilegeEscalation: false
+                  runAsNonRoot: true
+    - name: deny-privilege-escalation-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must set allowPrivilegeEscalation=false and runAsNonRoot=true."
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - securityContext:
+                      allowPrivilegeEscalation: false
+                      runAsNonRoot: true
+    - name: deny-privilege-escalation-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must set allowPrivilegeEscalation=false and runAsNonRoot=true."
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - securityContext:
+                          allowPrivilegeEscalation: false
+                          runAsNonRoot: true
+---
+# Source: kyverno-policies/templates/require-app-namespace-labels.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-app-namespace-labels
+  annotations:
+    policies.kyverno.io/title: Require Labels on Client Namespaces
+    policies.kyverno.io/description: >-
+      Namespaces with the app-* prefix (client application namespaces) must
+      have the required estabilis.io labels for identification and ownership.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-app-namespace-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - "app-*"
+      validate:
+        message: >-
+          Client namespaces (app-*) must have labels: estabilis.io/managed-by=client,
+          estabilis.io/tier=application, and estabilis.io/owner.
+        pattern:
+          metadata:
+            labels:
+              estabilis.io/managed-by: client
+              estabilis.io/tier: application
+              estabilis.io/owner: "?*"
+---
+# Source: kyverno-policies/templates/require-image-digest.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-image-digest
+  annotations:
+    policies.kyverno.io/title: Require Image Digest
+    policies.kyverno.io/description: >-
+      Requires all container images to be referenced by digest (@sha256:) rather
+      than tag alone. Image digests ensure immutability and prevent supply chain
+      attacks where a tag is overwritten with a different image.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: image-digest-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Container images must use a digest reference (@sha256:)."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "*@sha256:*"
+    - name: image-digest-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Container images must use a digest reference (@sha256:)."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "*@sha256:*"
+    - name: image-digest-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Container images must use a digest reference (@sha256:)."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: NotEquals
+                    value: "*@sha256:*"
+---
+# Source: kyverno-policies/templates/require-labels.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    policies.kyverno.io/title: Require Labels
+    policies.kyverno.io/description: >-
+      Requires all Deployments, StatefulSets, DaemonSets, Jobs, and CronJobs
+      to have the standard Estabilis platform labels for identification and
+      ownership tracking. Only applies to client application namespaces.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+              namespaces:
+                - "app-*"
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: >-
+          The following labels are required: app, team,
+          estabilis.io/owner, estabilis.io/service, estabilis.io/tier.
+        pattern:
+          metadata:
+            labels:
+              app: "?*"
+              team: "?*"
+              estabilis.io/owner: "?*"
+              estabilis.io/service: "?*"
+              estabilis.io/tier: "?*"
+---
+# Source: kyverno-policies/templates/require-limit-ranges.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-limit-ranges
+  annotations:
+    policies.kyverno.io/title: Require Limit Ranges
+    policies.kyverno.io/description: >-
+      Validates that every namespace has a LimitRange defined.
+      LimitRanges are managed by the resource-quotas platform component.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-limitrange-exists
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+                - default
+      context:
+        - name: limitRangeCount
+          apiCall:
+            urlPath: "/api/v1/namespaces/{{request.namespace}}/limitranges"
+            jmesPath: "items | length(@)"
+      validate:
+        message: "Namespace {{request.namespace}} must have a LimitRange. Deploy the resource-quotas component or add a LimitRange manually."
+        deny:
+          conditions:
+            all:
+              - key: "{{ limitRangeCount }}"
+                operator: Equals
+                value: 0
+---
+# Source: kyverno-policies/templates/require-limits.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-limits
+  annotations:
+    policies.kyverno.io/title: Require Resource Limits
+    policies.kyverno.io/description: >-
+      Requires all containers to define CPU and memory requests and limits.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-limits-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "All containers must have CPU and memory requests and limits defined."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    cpu: "?*"
+                    memory: "?*"
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"
+    - name: require-limits-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "All containers must have CPU and memory requests and limits defined."
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - resources:
+                      requests:
+                        cpu: "?*"
+                        memory: "?*"
+                      limits:
+                        cpu: "?*"
+                        memory: "?*"
+    - name: require-limits-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "All containers must have CPU and memory requests and limits defined."
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - resources:
+                          requests:
+                            cpu: "?*"
+                            memory: "?*"
+                          limits:
+                            cpu: "?*"
+                            memory: "?*"
+---
+# Source: kyverno-policies/templates/require-pod-annotations.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-pod-annotations
+  annotations:
+    policies.kyverno.io/title: Require Pod Annotations
+    policies.kyverno.io/description: >-
+      Requires Deployments, StatefulSets, and DaemonSets to include
+      estabilis.io/owner and estabilis.io/contact annotations for audit
+      trail and ownership tracking. Only applies to client application namespaces.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-owner-contact-annotations
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+              namespaces:
+                - "app-*"
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: >-
+          The annotations estabilis.io/owner and estabilis.io/contact are
+          required for audit trail and ownership tracking.
+        pattern:
+          metadata:
+            annotations:
+              estabilis.io/owner: "?*"
+              estabilis.io/contact: "?*"
+---
+# Source: kyverno-policies/templates/require-probes.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-probes
+  annotations:
+    policies.kyverno.io/title: Require Probes
+    policies.kyverno.io/description: >-
+      Requires Deployments and StatefulSets to define liveness and readiness
+      probes. Probes enable Kubernetes to detect unhealthy pods and route
+      traffic only to healthy instances. Only applies to client application
+      namespaces.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-probes-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+              namespaces:
+                - "app-*"
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "All containers must define livenessProbe and readinessProbe."
+        foreach:
+          - list: "request.object.spec.template.spec.containers[]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.livenessProbe || '' }}"
+                    operator: Equals
+                    value: ""
+                  - key: "{{ element.readinessProbe || '' }}"
+                    operator: Equals
+                    value: ""
+---
+# Source: kyverno-policies/templates/require-resource-quotas.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-quotas
+  annotations:
+    policies.kyverno.io/title: Require Resource Quotas
+    policies.kyverno.io/description: >-
+      Validates that every namespace has a ResourceQuota defined.
+      Resource quotas are managed by the resource-quotas platform component.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-quota-exists
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+                - default
+      context:
+        - name: quotaCount
+          apiCall:
+            urlPath: "/api/v1/namespaces/{{request.namespace}}/resourcequotas"
+            jmesPath: "items | length(@)"
+      validate:
+        message: "Namespace {{request.namespace}} must have a ResourceQuota. Deploy the resource-quotas component or add a quota manually."
+        deny:
+          conditions:
+            all:
+              - key: "{{ quotaCount }}"
+                operator: Equals
+                value: 0
+---
+# Source: kyverno-policies/templates/require-run-as-nonroot.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-run-as-nonroot
+  annotations:
+    policies.kyverno.io/title: Require Run As Non-Root
+    policies.kyverno.io/description: >-
+      Requires containers to run as a non-root user. Running as root inside a
+      container increases the risk of container breakout and host compromise.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: run-as-nonroot-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must set runAsNonRoot to true."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  runAsNonRoot: true
+    - name: run-as-nonroot-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must set runAsNonRoot to true."
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - securityContext:
+                      runAsNonRoot: true
+    - name: run-as-nonroot-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Containers must set runAsNonRoot to true."
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - securityContext:
+                          runAsNonRoot: true
+---
+# Source: kyverno-policies/templates/require-seccomp-profile.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-seccomp-profile
+  annotations:
+    policies.kyverno.io/title: Require Seccomp Profile
+    policies.kyverno.io/description: >-
+      Requires pods to set a seccomp profile of type RuntimeDefault or Localhost.
+      Seccomp profiles restrict the system calls a container can make, reducing
+      the kernel attack surface.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: seccomp-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must set seccompProfile.type to RuntimeDefault or Localhost."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.securityContext.seccompProfile.type || 'unset' }}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+                  - key: "{{ request.object.spec.securityContext.seccompProfile.type || 'unset' }}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+    - name: seccomp-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must set seccompProfile.type to RuntimeDefault or Localhost."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.securityContext.seccompProfile.type || 'unset' }}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+                  - key: "{{ request.object.spec.template.spec.securityContext.seccompProfile.type || 'unset' }}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+    - name: seccomp-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must set seccompProfile.type to RuntimeDefault or Localhost."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.securityContext.seccompProfile.type || 'unset' }}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+                  - key: "{{ request.object.spec.jobTemplate.spec.template.spec.securityContext.seccompProfile.type || 'unset' }}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+---
+# Source: kyverno-policies/templates/restrict-automount-sa-token.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-automount-sa-token
+  annotations:
+    policies.kyverno.io/title: Restrict Automount Service Account Token
+    policies.kyverno.io/description: >-
+      Prevents pods from automatically mounting the service account token.
+      Most workloads do not need to interact with the Kubernetes API and
+      auto-mounted tokens can be exploited in case of container compromise.
+      Only applies to client application namespaces.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: automount-sa-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - "app-*"
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must explicitly set automountServiceAccountToken to false."
+        pattern:
+          spec:
+            automountServiceAccountToken: false
+    - name: automount-sa-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+              namespaces:
+                - "app-*"
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must explicitly set automountServiceAccountToken to false."
+        pattern:
+          spec:
+            template:
+              spec:
+                automountServiceAccountToken: false
+    - name: automount-sa-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+              namespaces:
+                - "app-*"
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Pods must explicitly set automountServiceAccountToken to false."
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    automountServiceAccountToken: false
+---
+# Source: kyverno-policies/templates/restrict-volume-types.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-volume-types
+  annotations:
+    policies.kyverno.io/title: Restrict Volume Types
+    policies.kyverno.io/description: >-
+      Restricts pod volumes to safe types only: configMap, secret, emptyDir,
+      persistentVolumeClaim, downwardAPI, and projected. Other volume types
+      such as hostPath or nfs can be used to bypass security controls.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: restrict-volumes-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Only configMap, secret, emptyDir, persistentVolumeClaim, downwardAPI, and projected volume types are allowed."
+        foreach:
+          - list: "request.object.spec.volumes[]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.keys(@) }}"
+                    operator: AnyNotIn
+                    value:
+                      - name
+                      - configMap
+                      - secret
+                      - emptyDir
+                      - persistentVolumeClaim
+                      - downwardAPI
+                      - projected
+    - name: restrict-volumes-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Only configMap, secret, emptyDir, persistentVolumeClaim, downwardAPI, and projected volume types are allowed."
+        foreach:
+          - list: "request.object.spec.template.spec.volumes[]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.keys(@) }}"
+                    operator: AnyNotIn
+                    value:
+                      - name
+                      - configMap
+                      - secret
+                      - emptyDir
+                      - persistentVolumeClaim
+                      - downwardAPI
+                      - projected
+    - name: restrict-volumes-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Only configMap, secret, emptyDir, persistentVolumeClaim, downwardAPI, and projected volume types are allowed."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.volumes[]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.keys(@) }}"
+                    operator: AnyNotIn
+                    value:
+                      - name
+                      - configMap
+                      - secret
+                      - emptyDir
+                      - persistentVolumeClaim
+                      - downwardAPI
+                      - projected
+---
+# Source: kyverno-policies/templates/validate-namespace-name.yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-namespace-name
+  annotations:
+    policies.kyverno.io/title: Validate Namespace Name
+    policies.kyverno.io/description: >-
+      Validates that namespace names follow the convention of lowercase
+      alphanumeric characters and hyphens only. This prevents naming
+      inconsistencies and avoids issues with DNS-based service discovery.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-namespace-name
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+
+      exclude:
+        any:
+          - resources:
+              names:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kube-system
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Namespace name must be lowercase alphanumeric with hyphens only (regex: ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$)."
+        deny:
+          conditions:
+            any:
+              - key: "{{ regex_match('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$', request.object.metadata.name) }}"
+                operator: NotEquals
+                value: true

@@ -1,0 +1,43 @@
+{{- range $name, $exception := .Values.exceptions }}
+---
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "estabilis.labels" $ | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" $ | nindent 4 }}
+spec:
+  exceptions:
+    {{- range $exception.policies }}
+    - policyName: {{ . }}
+      {{- if $exception.rules }}
+      ruleNames:
+        {{- range $exception.rules }}
+        - {{ . }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  match:
+    any:
+      - resources:
+          {{- if $exception.match.kinds }}
+          kinds:
+            {{- range $exception.match.kinds }}
+            - {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- if $exception.match.namespaces }}
+          namespaces:
+            {{- range $exception.match.namespaces }}
+            - {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- if $exception.match.names }}
+          names:
+            {{- range $exception.match.names }}
+            - {{ . }}
+            {{- end }}
+          {{- end }}
+{{- end }}

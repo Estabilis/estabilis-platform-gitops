@@ -1,0 +1,94 @@
+{{- if .Values.policies.require_seccomp_profile.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-seccomp-profile
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Require Seccomp Profile
+    policies.kyverno.io/description: >-
+      Requires pods to set a seccomp profile of type RuntimeDefault or Localhost.
+      Seccomp profiles restrict the system calls a container can make, reducing
+      the kernel attack surface.
+spec:
+  validationFailureAction: {{ .Values.policies.require_seccomp_profile.action | default "Audit" }}
+  background: true
+  rules:
+    - name: seccomp-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must set seccompProfile.type to RuntimeDefault or Localhost."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{`{{ element.securityContext.seccompProfile.type || 'unset' }}`}}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+                  - key: "{{`{{ request.object.spec.securityContext.seccompProfile.type || 'unset' }}`}}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+    - name: seccomp-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must set seccompProfile.type to RuntimeDefault or Localhost."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{`{{ element.securityContext.seccompProfile.type || 'unset' }}`}}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+                  - key: "{{`{{ request.object.spec.template.spec.securityContext.seccompProfile.type || 'unset' }}`}}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+    - name: seccomp-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must set seccompProfile.type to RuntimeDefault or Localhost."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{`{{ element.securityContext.seccompProfile.type || 'unset' }}`}}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+                  - key: "{{`{{ request.object.spec.jobTemplate.spec.template.spec.securityContext.seccompProfile.type || 'unset' }}`}}"
+                    operator: AnyNotIn
+                    value:
+                      - RuntimeDefault
+                      - Localhost
+{{- end }}

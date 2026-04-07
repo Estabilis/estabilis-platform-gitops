@@ -1,0 +1,50 @@
+{{- if .Values.policies.block_client_in_platform_ns.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-client-in-platform-ns
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Block Client Deployments in Platform Namespaces
+    policies.kyverno.io/description: >-
+      Prevents workloads with estabilis.io/managed-by=client from being
+      deployed in platform namespaces. Client apps must use app-* namespaces.
+spec:
+  validationFailureAction: {{ .Values.policies.block_client_in_platform_ns.action | default "Audit" }}
+  background: true
+  rules:
+    - name: block-client-deployments
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+              namespaces:
+                - argocd
+                - cert-manager
+                - cnpg-system
+                - external-dns
+                - external-secrets
+                - grafana
+                - kube-node-lease
+                - kube-public
+                - kube-state-metrics
+                - kyverno
+                - node-exporter
+                - opencost
+                - traefik
+                - trivy-system
+                - velero
+      validate:
+        message: "Client workloads (estabilis.io/managed-by=client) cannot be deployed in platform namespaces. Use app-* namespaces."
+        deny:
+          conditions:
+            any:
+              - key: "{{`{{ request.object.metadata.labels.\"estabilis.io/managed-by\" || '' }}`}}"
+                operator: Equals
+                value: "client"
+{{- end }}

@@ -1,0 +1,72 @@
+{{- if .Values.policies.disallow_privileged_containers.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-privileged-containers
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Disallow Privileged Containers
+    policies.kyverno.io/description: >-
+      Prevents containers from running in privileged mode. Privileged containers
+      have full access to the host devices and kernel capabilities, effectively
+      removing all container isolation.
+spec:
+  validationFailureAction: {{ .Values.policies.disallow_privileged_containers.action | default "Audit" }}
+  background: true
+  rules:
+    - name: privileged-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must not run in privileged mode."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.securityContext.privileged || false }}`}}"
+                    operator: Equals
+                    value: true
+    - name: privileged-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must not run in privileged mode."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.securityContext.privileged || false }}`}}"
+                    operator: Equals
+                    value: true
+    - name: privileged-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must not run in privileged mode."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.securityContext.privileged || false }}`}}"
+                    operator: Equals
+                    value: true
+{{- end }}

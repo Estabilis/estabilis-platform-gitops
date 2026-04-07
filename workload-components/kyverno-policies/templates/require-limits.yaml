@@ -1,0 +1,83 @@
+{{- if .Values.policies.require_limits.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-limits
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Require Resource Limits
+    policies.kyverno.io/description: >-
+      Requires all containers to define CPU and memory requests and limits.
+spec:
+  validationFailureAction: {{ .Values.policies.require_limits.action | default "Audit" }}
+  background: true
+  rules:
+    - name: require-limits-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "All containers must have CPU and memory requests and limits defined."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    cpu: "?*"
+                    memory: "?*"
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"
+    - name: require-limits-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "All containers must have CPU and memory requests and limits defined."
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - resources:
+                      requests:
+                        cpu: "?*"
+                        memory: "?*"
+                      limits:
+                        cpu: "?*"
+                        memory: "?*"
+    - name: require-limits-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "All containers must have CPU and memory requests and limits defined."
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - resources:
+                          requests:
+                            cpu: "?*"
+                            memory: "?*"
+                          limits:
+                            cpu: "?*"
+                            memory: "?*"
+{{- end }}

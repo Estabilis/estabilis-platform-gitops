@@ -1,0 +1,70 @@
+{{- if .Values.policies.disallow_host_namespaces.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-namespaces
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Disallow Host Namespaces
+    policies.kyverno.io/description: >-
+      Prevents pods from using host PID, IPC, or network namespaces. Sharing
+      host namespaces allows containers to access host-level resources and
+      breaks the isolation boundary.
+spec:
+  validationFailureAction: {{ .Values.policies.disallow_host_namespaces.action | default "Audit" }}
+  background: true
+  rules:
+    - name: host-namespaces-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must not use host PID, IPC, or network namespaces."
+        pattern:
+          spec:
+            =(hostPID): false
+            =(hostIPC): false
+            =(hostNetwork): false
+    - name: host-namespaces-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must not use host PID, IPC, or network namespaces."
+        pattern:
+          spec:
+            template:
+              spec:
+                =(hostPID): false
+                =(hostIPC): false
+                =(hostNetwork): false
+    - name: host-namespaces-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must not use host PID, IPC, or network namespaces."
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    =(hostPID): false
+                    =(hostIPC): false
+                    =(hostNetwork): false
+{{- end }}

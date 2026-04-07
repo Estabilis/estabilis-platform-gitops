@@ -1,0 +1,73 @@
+{{- if .Values.policies.require_image_digest.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-image-digest
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Require Image Digest
+    policies.kyverno.io/description: >-
+      Requires all container images to be referenced by digest (@sha256:) rather
+      than tag alone. Image digests ensure immutability and prevent supply chain
+      attacks where a tag is overwritten with a different image.
+spec:
+  validationFailureAction: {{ .Values.policies.require_image_digest.action | default "Audit" }}
+  background: true
+  rules:
+    - name: image-digest-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Container images must use a digest reference (@sha256:)."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.image }}`}}"
+                    operator: NotEquals
+                    value: "*@sha256:*"
+    - name: image-digest-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Container images must use a digest reference (@sha256:)."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.image }}`}}"
+                    operator: NotEquals
+                    value: "*@sha256:*"
+    - name: image-digest-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Container images must use a digest reference (@sha256:)."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.image }}`}}"
+                    operator: NotEquals
+                    value: "*@sha256:*"
+{{- end }}

@@ -1,0 +1,36 @@
+{{- if .Values.policies.require_app_namespace_labels.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-app-namespace-labels
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Require Labels on Client Namespaces
+    policies.kyverno.io/description: >-
+      Namespaces with the app-* prefix (client application namespaces) must
+      have the required estabilis.io labels for identification and ownership.
+spec:
+  validationFailureAction: {{ .Values.policies.require_app_namespace_labels.action | default "Audit" }}
+  background: true
+  rules:
+    - name: require-app-namespace-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - "app-*"
+      validate:
+        message: >-
+          Client namespaces (app-*) must have labels: estabilis.io/managed-by=client,
+          estabilis.io/tier=application, and estabilis.io/owner.
+        pattern:
+          metadata:
+            labels:
+              estabilis.io/managed-by: client
+              estabilis.io/tier: application
+              estabilis.io/owner: "?*"
+{{- end }}

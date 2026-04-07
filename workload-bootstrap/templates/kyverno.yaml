@@ -35,6 +35,10 @@ spec:
   template:
     metadata:
       name: "workload-kyverno-{{ `{{name}}` }}"
+      annotations:
+        # Sync-wave 2 — engine comes up before policies (wave 3) and
+        # exceptions (wave 4). Mirrors platform-root sync-wave convention.
+        argocd.argoproj.io/sync-wave: "2"
       labels:
         # Context label only — identifies which workload cluster this
         # Application targets. Useful for filtering in ArgoCD UI. All

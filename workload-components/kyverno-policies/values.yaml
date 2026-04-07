@@ -1,0 +1,115 @@
+# ---------------------------------------------------------------------------
+# Kyverno Policies Configuration
+# ---------------------------------------------------------------------------
+#
+# Exclusion architecture (3 layers):
+#
+# 1. GLOBAL (webhook namespaceSelector):
+#    Namespaces with label kyverno.io/exclude=true are completely ignored
+#    by Kyverno. Configured in core/components/kyverno/values.yaml.
+#    Labels applied via managedNamespaceMetadataExcluded helper in _helpers.tpl.
+#    kube-system labeled via kyverno-exceptions component.
+#
+# 2. EXCEPTION (PolicyException CRDs):
+#    Per-resource, per-policy exceptions for specific cases.
+#    Managed via core/components/kyverno-exceptions/values.yaml.
+#    Downstream can add exceptions via overrides.
+#
+# 3. POLICY MATCH (per-policy):
+#    Some policies match only app-* namespaces (require-labels,
+#    require-pod-annotations, require-probes, restrict-automount-sa-token).
+#    Semantic excludes kept in: default-deny-network-policy, inject-pss-labels,
+#    require-limit-ranges, require-resource-quotas.
+#
+# Excluded namespaces (kyverno.io/exclude=true):
+#   Permanent: kube-system, kyverno (self), node-exporter, trivy-system, grafana
+#   Temporary: argocd, cert-manager, cnpg-system, external-dns, external-secrets,
+#              kube-state-metrics, opencost, traefik, velero
+#   TODO: validate temporary namespaces with kyverno CLI (issue #48),
+#         then remove label to enable validation.
+#
+# App namespaces (app-*) never get the exclude label — always validated.
+# ---------------------------------------------------------------------------
+
+policies:
+  default_deny_network_policy:
+    enabled: true
+  deny_ingress_platform_ns:
+    enabled: true
+    action: Audit
+  disallow_adding_capabilities:
+    enabled: true
+    action: Audit
+  disallow_default_sa:
+    enabled: true
+    action: Audit
+  disallow_host_namespaces:
+    enabled: true
+    action: Audit
+  disallow_host_path:
+    enabled: true
+    action: Audit
+  disallow_host_ports:
+    enabled: true
+    action: Audit
+  disallow_privileged_containers:
+    enabled: true
+    action: Audit
+  drop_all_capabilities:
+    enabled: true
+    action: Audit
+  generate_pdb:
+    enabled: true
+  inject_pss_labels:
+    enabled: true
+  inject_security_context:
+    enabled: true
+  no_latest_tag:
+    enabled: true
+    action: Audit
+  no_privilege_escalation:
+    enabled: true
+    action: Audit
+  require_image_digest:
+    enabled: true
+    action: Audit
+  require_labels:
+    enabled: true
+    action: Audit
+  require_limit_ranges:
+    enabled: true
+  require_limits:
+    enabled: true
+    action: Audit
+  require_pod_annotations:
+    enabled: true
+    action: Audit
+  require_probes:
+    enabled: true
+    action: Audit
+  require_resource_quotas:
+    enabled: true
+  require_run_as_nonroot:
+    enabled: true
+    action: Audit
+  require_seccomp_profile:
+    enabled: true
+    action: Audit
+  restrict_automount_sa_token:
+    enabled: true
+    action: Audit
+  restrict_volume_types:
+    enabled: true
+    action: Audit
+  validate_namespace_name:
+    enabled: true
+    action: Audit
+  require_app_namespace_labels:
+    enabled: true
+    action: Audit
+  block_client_in_platform_ns:
+    enabled: true
+    action: Audit
+  inject_platform_label:
+    enabled: true
+customPolicies: {}

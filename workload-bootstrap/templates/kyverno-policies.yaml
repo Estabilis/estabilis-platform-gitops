@@ -1,0 +1,71 @@
+{{- /*
+  Kyverno ClusterPolicies for every workload cluster.
+
+  Opt-in toggle: components.kyverno-policies (flat boolean, mirrors
+  platform-root convention).
+
+  LOCKSTEP WITH THE HUB. The workload-components/kyverno-policies chart
+  is a verbatim copy of estabilis-platform/core/components/kyverno-policies.
+  Both MUST bump together — any new policy or excluded namespace added
+  on the hub should be mirrored here in the same PR.
+
+  The rendered ApplicationSet uses a clusters generator keyed off
+  .Values.clusterSelector.matchLabels — the same label the operator
+  writes on ArgoCD Cluster Secrets when it registers a workload.
+
+  Multi-source Application:
+    1) This repo directly (path: workload-components/kyverno-policies).
+    2) This repo as $values — provides the values overlay from
+       workload-components/kyverno-policies/values.yaml.
+
+  No managedNamespaceMetadata: the kyverno namespace is already created
+  by the workload-kyverno ApplicationSet. Mirrors hub kyverno-policies
+  Application exactly (no automated sync — destructive changes to
+  ClusterPolicies must be operator-initiated).
+*/ -}}
+{{- if index .Values.components "kyverno-policies" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workload-kyverno-policies
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "workload-kyverno-policies-{{ `{{name}}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "3"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+    spec:
+      project: default
+      sources:
+        # 1) The chart itself, from this repo
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          path: workload-components/kyverno-policies
+          helm:
+            releaseName: "kyverno-policies"
+            valueFiles:
+              - $values/workload-components/kyverno-policies/values.yaml
+        # 2) This repo as $values — overlay source
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+      destination:
+        server: "{{ `{{server}}` }}"
+        namespace: "kyverno"
+      syncPolicy:
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+{{- end }}

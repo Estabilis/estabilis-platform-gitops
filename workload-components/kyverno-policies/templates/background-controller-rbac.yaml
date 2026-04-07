@@ -1,0 +1,53 @@
+{{- if .Values.policies.inject_platform_label.enabled }}
+# ---------------------------------------------------------------------------
+# Background-controller RBAC extension for `inject-platform-label`.
+#
+# Kyverno's `kyverno:background-controller` ClusterRole is built via
+# aggregation — it merges any ClusterRole carrying the label
+# `app.kubernetes.io/component=background-controller`. The default install
+# only grants the controller verbs on policy/networking/resourcequota CRDs;
+# it does NOT grant `patch` on apps/v1 workloads.
+#
+# Without these permissions, `mutateExistingOnPolicyUpdate: true` in
+# inject-platform-label.yaml installs successfully but FAILS at runtime
+# with permission errors when the controller tries to patch existing
+# Deployments/StatefulSets/DaemonSets.
+#
+# This ClusterRole grants exactly what the mutate-existing rule needs and
+# nothing more (no create, no delete) — it is the minimum surface to label
+# existing workloads in platform namespaces. See issue #48.
+# ---------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:background-controller:inject-platform-label
+  labels:
+    # CRITICAL: these three labels are required for kyverno's ClusterRole
+    # aggregation. Removing them breaks #48 (background-controller loses
+    # apps/v1 patch perms). Kept inline rather than via estabilis.labels
+    # because aggregation requires app.kubernetes.io/part-of=kyverno, NOT
+    # estabilis-platform.
+    app.kubernetes.io/component: background-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    # Branding (subset of estabilis.labels — added inline to coexist with
+    # the kyverno aggregation labels above)
+    estabilis.io/component: kyverno-policies
+    app.kubernetes.io/name: kyverno-policies
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - statefulsets
+      - daemonsets
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+{{- end }}

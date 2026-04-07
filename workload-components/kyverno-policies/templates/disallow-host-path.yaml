@@ -1,0 +1,67 @@
+{{- if .Values.policies.disallow_host_path.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-path
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Disallow Host Path Volumes
+    policies.kyverno.io/description: >-
+      Prevents pods from mounting host filesystem paths via hostPath volumes.
+      HostPath volumes allow containers to access the host filesystem, which
+      can be used to escape the container sandbox.
+spec:
+  validationFailureAction: {{ .Values.policies.disallow_host_path.action | default "Audit" }}
+  background: true
+  rules:
+    - name: host-path-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must not use hostPath volumes."
+        pattern:
+          spec:
+            =(volumes):
+              - X(hostPath): "null"
+    - name: host-path-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must not use hostPath volumes."
+        pattern:
+          spec:
+            template:
+              spec:
+                =(volumes):
+                  - X(hostPath): "null"
+    - name: host-path-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must not use hostPath volumes."
+        pattern:
+          spec:
+            jobTemplate:
+              spec:
+                template:
+                  spec:
+                    =(volumes):
+                      - X(hostPath): "null"
+{{- end }}

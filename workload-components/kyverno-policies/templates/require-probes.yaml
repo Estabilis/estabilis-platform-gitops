@@ -1,0 +1,43 @@
+{{- if .Values.policies.require_probes.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-probes
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Require Probes
+    policies.kyverno.io/description: >-
+      Requires Deployments and StatefulSets to define liveness and readiness
+      probes. Probes enable Kubernetes to detect unhealthy pods and route
+      traffic only to healthy instances. Only applies to client application
+      namespaces.
+spec:
+  validationFailureAction: {{ .Values.policies.require_probes.action | default "Audit" }}
+  background: true
+  rules:
+    - name: require-probes-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+              namespaces:
+                - "app-*"
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "All containers must define livenessProbe and readinessProbe."
+        foreach:
+          - list: "request.object.spec.template.spec.containers[]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.livenessProbe || '' }}`}}"
+                    operator: Equals
+                    value: ""
+                  - key: "{{`{{ element.readinessProbe || '' }}`}}"
+                    operator: Equals
+                    value: ""
+{{- end }}

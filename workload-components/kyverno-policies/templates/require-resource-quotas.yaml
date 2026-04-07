@@ -1,0 +1,43 @@
+{{- if .Values.policies.require_resource_quotas.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-quotas
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Require Resource Quotas
+    policies.kyverno.io/description: >-
+      Validates that every namespace has a ResourceQuota defined.
+      Resource quotas are managed by the resource-quotas platform component.
+spec:
+  validationFailureAction: {{ .Values.policies.require_resource_quotas.action | default "Audit" }}
+  background: true
+  rules:
+    - name: check-quota-exists
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+{{ include "kyverno-policies.excluded-namespace-list" . }}
+                - default
+      context:
+        - name: quotaCount
+          apiCall:
+            urlPath: "/api/v1/namespaces/{{`{{request.namespace}}`}}/resourcequotas"
+            jmesPath: "items | length(@)"
+      validate:
+        message: "Namespace {{`{{request.namespace}}`}} must have a ResourceQuota. Deploy the resource-quotas component or add a quota manually."
+        deny:
+          conditions:
+            all:
+              - key: "{{`{{ quotaCount }}`}}"
+                operator: Equals
+                value: 0
+{{- end }}

@@ -1,0 +1,21 @@
+# Namespaces to label with kyverno.io/exclude=true
+# These are pre-existing namespaces not managed by ArgoCD CreateNamespace.
+namespacesToLabel:
+  - kube-system
+
+# PolicyException definitions — downstream can add per-resource exceptions.
+# Each entry generates a PolicyException CRD.
+# Example:
+#   exceptions:
+#     allow-redis-default-sa:
+#       policies:
+#         - disallow-default-sa
+#       rules:
+#         - default-sa-pods
+#         - default-sa-controllers
+#       match:
+#         namespaces: [argocd]
+#         kinds: [Pod, Deployment]
+#         names: ["argocd-redis-*"]
+#       reason: "ArgoCD Redis uses default ServiceAccount"
+exceptions: {}

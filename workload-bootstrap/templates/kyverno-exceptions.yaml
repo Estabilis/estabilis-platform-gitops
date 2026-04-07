@@ -1,0 +1,64 @@
+{{- /*
+  Kyverno namespace labels + PolicyException CRDs for every workload cluster.
+
+  Opt-in toggle: components.kyverno-exceptions (flat boolean, mirrors
+  platform-root convention).
+
+  LOCKSTEP WITH THE HUB. The workload-components/kyverno-exceptions chart
+  is a verbatim copy of estabilis-platform/core/components/kyverno-exceptions.
+  Both MUST bump together.
+
+  Used to:
+    - Label pre-existing namespaces (e.g. kube-system) with
+      kyverno.io/exclude=true so Kyverno skips them entirely.
+    - Emit PolicyException CRDs for per-resource, per-policy escapes.
+
+  Mirrors hub kyverno-exceptions Application exactly (sync-wave 4 —
+  after policies, no automated sync).
+*/ -}}
+{{- if index .Values.components "kyverno-exceptions" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workload-kyverno-exceptions
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "workload-kyverno-exceptions-{{ `{{name}}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "4"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+    spec:
+      project: default
+      sources:
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          path: workload-components/kyverno-exceptions
+          helm:
+            releaseName: "kyverno-exceptions"
+            valueFiles:
+              - $values/workload-components/kyverno-exceptions/values.yaml
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+      destination:
+        server: "{{ `{{server}}` }}"
+        namespace: "kyverno"
+      syncPolicy:
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - ServerSideApply=true
+{{- end }}

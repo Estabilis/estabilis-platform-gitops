@@ -14,7 +14,7 @@
 # should pin to when reading $values. Kept in sync with the hub Application's
 # targetRevision so $values always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.2.0
+repoVersion: v0.3.0
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
@@ -46,5 +46,6 @@ clusterSelector:
 #   core — CANNOT be disabled without breaking the workload baseline
 components:
   # --- core ---
-  kyverno: true   # core: admission/background/cleanup/reports controllers
-                  #       (no policies yet — see roadmap for v0.3.0)
+  kyverno: true              # core: admission/background/cleanup/reports controllers
+  kyverno-policies: true     # core: ClusterPolicies (29 baseline rules, all Audit mode)
+  kyverno-exceptions: true   # core: PolicyException CRDs + namespace labels

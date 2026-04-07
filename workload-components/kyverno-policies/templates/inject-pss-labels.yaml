@@ -1,0 +1,83 @@
+{{- if .Values.policies.inject_pss_labels.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: inject-pss-labels
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Inject PSS Labels
+    policies.kyverno.io/description: >-
+      Injects Pod Security Standards (PSS) labels on namespaces.
+      Client namespaces (app-*) get enforce=restricted.
+      Privileged namespaces (node-exporter, trivy-system) get enforce=privileged.
+      All other platform namespaces get enforce=baseline with warn/audit=restricted.
+spec:
+  background: true
+  rules:
+    - name: inject-pss-restricted-client
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - "app-*"
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              pod-security.kubernetes.io/enforce: restricted
+              pod-security.kubernetes.io/enforce-version: latest
+              pod-security.kubernetes.io/audit: restricted
+              pod-security.kubernetes.io/audit-version: latest
+              pod-security.kubernetes.io/warn: restricted
+              pod-security.kubernetes.io/warn-version: latest
+    - name: inject-pss-privileged
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - grafana
+                - node-exporter
+                - trivy-system
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              pod-security.kubernetes.io/enforce: privileged
+              pod-security.kubernetes.io/enforce-version: latest
+              pod-security.kubernetes.io/audit: baseline
+              pod-security.kubernetes.io/audit-version: latest
+              pod-security.kubernetes.io/warn: baseline
+              pod-security.kubernetes.io/warn-version: latest
+    - name: inject-pss-baseline-platform
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      exclude:
+        any:
+          - resources:
+              names:
+                - "app-*"
+                - node-exporter
+                - trivy-system
+          - resources:
+              names:
+{{ include "kyverno-policies.excluded-namespace-list" . }}
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              pod-security.kubernetes.io/enforce: baseline
+              pod-security.kubernetes.io/enforce-version: latest
+              pod-security.kubernetes.io/audit: restricted
+              pod-security.kubernetes.io/audit-version: latest
+              pod-security.kubernetes.io/warn: restricted
+              pod-security.kubernetes.io/warn-version: latest
+{{- end }}

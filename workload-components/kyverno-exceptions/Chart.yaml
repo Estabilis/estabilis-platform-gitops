@@ -1,0 +1,5 @@
+apiVersion: v2
+name: kyverno-exceptions
+description: Kyverno namespace labels and PolicyException CRDs
+type: application
+version: 0.1.0

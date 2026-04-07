@@ -1,0 +1,15 @@
+{{- range $name, $policy := .Values.customPolicies }}
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "estabilis.labels" $ | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" $ | nindent 4 }}
+    policies.kyverno.io/title: "Custom: {{ $name }}"
+    estabilis.io/custom-policy: "true"
+spec:
+  {{- toYaml $policy.spec | nindent 2 }}
+{{- end }}

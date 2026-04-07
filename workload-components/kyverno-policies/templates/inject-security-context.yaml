@@ -1,0 +1,95 @@
+{{- if .Values.policies.inject_security_context.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: inject-security-context
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Inject Security Context Defaults
+    policies.kyverno.io/description: >-
+      Automatically injects safe security context defaults on containers that
+      do not already define them. Sets runAsNonRoot, readOnlyRootFilesystem,
+      allowPrivilegeEscalation, capabilities drop ALL, and seccomp profile.
+spec:
+  background: true
+  rules:
+    - name: inject-security-context-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      mutate:
+        foreach:
+          - list: "request.object.spec.containers[]"
+            patchStrategicMerge:
+              spec:
+                containers:
+                  - (name): "{{`{{ element.name }}`}}"
+                    securityContext:
+                      +(runAsNonRoot): true
+                      +(readOnlyRootFilesystem): true
+                      +(allowPrivilegeEscalation): false
+                      +(capabilities):
+                        drop:
+                          - ALL
+                      +(seccompProfile):
+                        type: RuntimeDefault
+    - name: inject-security-context-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+{{ include "kyverno-policies.platform-exclude" . }}
+      mutate:
+        foreach:
+          - list: "request.object.spec.template.spec.containers[]"
+            patchStrategicMerge:
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - (name): "{{`{{ element.name }}`}}"
+                        securityContext:
+                          +(runAsNonRoot): true
+                          +(readOnlyRootFilesystem): true
+                          +(allowPrivilegeEscalation): false
+                          +(capabilities):
+                            drop:
+                              - ALL
+                          +(seccompProfile):
+                            type: RuntimeDefault
+    - name: inject-security-context-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      mutate:
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.containers[]"
+            patchStrategicMerge:
+              spec:
+                jobTemplate:
+                  spec:
+                    template:
+                      spec:
+                        containers:
+                          - (name): "{{`{{ element.name }}`}}"
+                            securityContext:
+                              +(runAsNonRoot): true
+                              +(readOnlyRootFilesystem): true
+                              +(allowPrivilegeEscalation): false
+                              +(capabilities):
+                                drop:
+                                  - ALL
+                              +(seccompProfile):
+                                type: RuntimeDefault
+{{- end }}

@@ -1,0 +1,73 @@
+{{- if .Values.policies.disallow_default_sa.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-default-sa
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Disallow Default Service Account
+    policies.kyverno.io/description: >-
+      Prevents pods from using the default ServiceAccount. The default
+      ServiceAccount is automatically created in every namespace and may
+      have more permissions than intended.
+spec:
+  validationFailureAction: {{ .Values.policies.disallow_default_sa.action | default "Audit" }}
+  background: true
+  rules:
+    - name: default-sa-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must not use the 'default' ServiceAccount."
+        foreach:
+          - list: "request.object"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ request.object.spec.serviceAccountName || 'default' }}`}}"
+                    operator: Equals
+                    value: "default"
+    - name: default-sa-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must not use the 'default' ServiceAccount."
+        foreach:
+          - list: "request.object"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ request.object.spec.template.spec.serviceAccountName || 'default' }}`}}"
+                    operator: Equals
+                    value: "default"
+    - name: default-sa-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Pods must not use the 'default' ServiceAccount."
+        foreach:
+          - list: "request.object"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ request.object.spec.jobTemplate.spec.template.spec.serviceAccountName || 'default' }}`}}"
+                    operator: Equals
+                    value: "default"
+{{- end }}

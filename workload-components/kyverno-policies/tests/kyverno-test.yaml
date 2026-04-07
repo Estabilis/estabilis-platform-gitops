@@ -1,0 +1,266 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: platform-namespace-exclusion-tests
+policies:
+  - policies.yaml
+resources:
+  - resources.yaml
+results:
+  # =========================================================================
+  # no-latest-tag — platform namespaces must be SKIPPED
+  # =========================================================================
+  - policy: no-latest-tag
+    rule: require-image-tag
+    resources:
+      - kube-system/kube-proxy
+    kind: Pod
+    result: skip
+  - policy: no-latest-tag
+    rule: require-image-tag
+    resources:
+      - argocd/argocd-server
+    kind: Pod
+    result: skip
+  - policy: no-latest-tag
+    rule: require-image-tag
+    resources:
+      - grafana/grafana-pod
+    kind: Pod
+    result: skip
+  - policy: no-latest-tag
+    rule: require-image-tag
+    resources:
+      - kyverno/kyverno-pod
+    kind: Pod
+    result: skip
+  - policy: no-latest-tag
+    rule: require-image-tag
+    resources:
+      - traefik/traefik-pod
+    kind: Pod
+    result: skip
+  # no-latest-tag — app namespace must be VALIDATED
+  - policy: no-latest-tag
+    rule: require-image-tag
+    resources:
+      - app-myapp/latest-tag-pod
+    kind: Pod
+    result: fail
+  - policy: no-latest-tag
+    rule: require-image-tag
+    resources:
+      - app-myapp/compliant-pod
+    kind: Pod
+    result: pass
+
+  # =========================================================================
+  # require-limits — platform namespaces must be SKIPPED
+  # =========================================================================
+  - policy: require-limits
+    rule: require-limits-pods
+    resources:
+      - kube-system/kube-proxy
+    kind: Pod
+    result: skip
+  - policy: require-limits
+    rule: require-limits-pods
+    resources:
+      - argocd/argocd-server
+    kind: Pod
+    result: skip
+  - policy: require-limits
+    rule: require-limits-pods
+    resources:
+      - cert-manager/cert-manager-pod
+    kind: Pod
+    result: skip
+  # require-limits — app namespace must be VALIDATED
+  - policy: require-limits
+    rule: require-limits-pods
+    resources:
+      - app-myapp/no-limits-pod
+    kind: Pod
+    result: fail
+  - policy: require-limits
+    rule: require-limits-pods
+    resources:
+      - app-myapp/compliant-pod
+    kind: Pod
+    result: pass
+
+  # =========================================================================
+  # disallow-privileged-containers — platform namespaces must be SKIPPED
+  # =========================================================================
+  - policy: disallow-privileged-containers
+    rule: privileged-pods
+    resources:
+      - kube-system/kube-proxy
+    kind: Pod
+    result: skip
+  # disallow-privileged-containers — app namespace must be VALIDATED
+  - policy: disallow-privileged-containers
+    rule: privileged-pods
+    resources:
+      - app-myapp/privileged-pod
+    kind: Pod
+    result: fail
+  - policy: disallow-privileged-containers
+    rule: privileged-pods
+    resources:
+      - app-myapp/compliant-pod
+    kind: Pod
+    result: pass
+
+  # =========================================================================
+  # require-image-digest — platform namespaces must be SKIPPED
+  # =========================================================================
+  - policy: require-image-digest
+    rule: image-digest-pods
+    resources:
+      - kube-system/kube-proxy
+    kind: Pod
+    result: skip
+  - policy: require-image-digest
+    rule: image-digest-pods
+    resources:
+      - argocd/argocd-server
+    kind: Pod
+    result: skip
+  - policy: require-image-digest
+    rule: image-digest-pods
+    resources:
+      - grafana/grafana-pod
+    kind: Pod
+    result: skip
+  # require-image-digest — app namespace must be VALIDATED
+  - policy: require-image-digest
+    rule: image-digest-pods
+    resources:
+      - app-myapp/compliant-pod
+    kind: Pod
+    result: pass
+  - policy: require-image-digest
+    rule: image-digest-pods
+    resources:
+      - app-myapp/no-limits-pod
+    kind: Pod
+    result: fail
+  # require-image-digest controllers — platform must be SKIPPED
+  - policy: require-image-digest
+    rule: image-digest-controllers
+    resources:
+      - kube-system/kube-system-deploy
+    kind: Deployment
+    result: skip
+  - policy: require-image-digest
+    rule: image-digest-controllers
+    resources:
+      - app-myapp/app-deploy
+    kind: Deployment
+    result: fail
+
+  # =========================================================================
+  # generate-pdb — generate policies don't produce skip results in CLI,
+  # so we only test that app namespaces trigger generation.
+  # Exclusion is verified by the validate policy tests above.
+  # =========================================================================
+  - policy: generate-pdb
+    rule: generate-pdb-for-deployments
+    resources:
+      - app-myapp/app-deploy
+    kind: Deployment
+    result: pass
+
+  # =========================================================================
+  # validate-namespace-name — platform namespaces must be SKIPPED
+  # =========================================================================
+  - policy: validate-namespace-name
+    rule: check-namespace-name
+    resources:
+      - kube-system
+    kind: Namespace
+    result: skip
+  - policy: validate-namespace-name
+    rule: check-namespace-name
+    resources:
+      - argocd
+    kind: Namespace
+    result: skip
+  - policy: validate-namespace-name
+    rule: check-namespace-name
+    resources:
+      - kyverno
+    kind: Namespace
+    result: skip
+  # validate-namespace-name — valid name must PASS
+  - policy: validate-namespace-name
+    rule: check-namespace-name
+    resources:
+      - app-myapp
+    kind: Namespace
+    result: pass
+  # validate-namespace-name — invalid name must FAIL
+  - policy: validate-namespace-name
+    rule: check-namespace-name
+    resources:
+      - My_Invalid_NS
+    kind: Namespace
+    result: fail
+
+  # =========================================================================
+  # default-deny-network-policy — generate policies don't produce skip
+  # results in CLI. Only test that app namespaces trigger generation.
+  # =========================================================================
+  - policy: default-deny-network-policy
+    rule: generate-default-deny
+    resources:
+      - app-myapp
+    kind: Namespace
+    result: pass
+
+  # =========================================================================
+  # no-privilege-escalation — platform namespaces must be SKIPPED
+  # =========================================================================
+  - policy: no-privilege-escalation
+    rule: deny-privilege-escalation-pods
+    resources:
+      - kube-system/kube-proxy
+    kind: Pod
+    result: skip
+  - policy: no-privilege-escalation
+    rule: deny-privilege-escalation-pods
+    resources:
+      - argocd/argocd-server
+    kind: Pod
+    result: skip
+  # no-privilege-escalation — app namespace must be VALIDATED
+  - policy: no-privilege-escalation
+    rule: deny-privilege-escalation-pods
+    resources:
+      - app-myapp/compliant-pod
+    kind: Pod
+    result: pass
+
+  # =========================================================================
+  # drop-all-capabilities — platform namespaces must be SKIPPED
+  # =========================================================================
+  - policy: drop-all-capabilities
+    rule: drop-all-pods
+    resources:
+      - kube-system/kube-proxy
+    kind: Pod
+    result: skip
+  - policy: drop-all-capabilities
+    rule: drop-all-pods
+    resources:
+      - grafana/grafana-pod
+    kind: Pod
+    result: skip
+  # drop-all-capabilities — app namespace compliant pod must PASS
+  - policy: drop-all-capabilities
+    rule: drop-all-pods
+    resources:
+      - app-myapp/compliant-pod
+    kind: Pod
+    result: pass

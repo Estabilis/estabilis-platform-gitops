@@ -1,0 +1,38 @@
+{{- if .Values.policies.default_deny_network_policy.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: default-deny-network-policy
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Default Deny Network Policy
+    policies.kyverno.io/description: >-
+      Automatically generates a default-deny NetworkPolicy for each new
+      namespace. This ensures zero-trust networking by default, requiring
+      explicit NetworkPolicy rules to allow traffic.
+spec:
+  background: true
+  rules:
+    - name: generate-default-deny
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+{{ include "kyverno-policies.platform-exclude-namespaces" . }}
+      generate:
+        generateExisting: true
+        synchronize: true
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        name: default-deny-all
+        namespace: "{{`{{ request.object.metadata.name }}`}}"
+        data:
+          spec:
+            podSelector: {}
+            policyTypes:
+              - Ingress
+              - Egress
+{{- end }}

@@ -1,0 +1,41 @@
+{{- if .Values.policies.deny_ingress_platform_ns.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-ingress-platform-ns
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Deny Ingress in Platform Namespaces
+    policies.kyverno.io/description: >-
+      Prevents creating Ingress resources in platform namespaces to avoid
+      accidental exposure of internal APIs to the public internet.
+      Platform ingress is managed exclusively by the upstream configuration.
+spec:
+  validationFailureAction: {{ .Values.policies.deny_ingress_platform_ns.action | default "Audit" }}
+  background: true
+  rules:
+    - name: deny-ingress-platform-namespaces
+      match:
+        any:
+          - resources:
+              kinds:
+                - Ingress
+              namespaces:
+                - cert-manager
+                - external-secrets
+                - external-dns
+                - kyverno
+                - grafana
+                - opencost
+                - velero
+                - trivy-system
+                - cnpg-system
+                - kube-state-metrics
+                - node-exporter
+                - policy-reporter
+      validate:
+        message: "Ingress resources are not allowed in platform namespaces. Platform ingress is managed by the upstream configuration."
+        deny: {}
+{{- end }}

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: kyverno-policies
+description: Kyverno ClusterPolicies for the Estabilis Platform
+type: application
+version: 0.1.0

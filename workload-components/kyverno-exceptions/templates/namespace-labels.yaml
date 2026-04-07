@@ -1,0 +1,13 @@
+{{- range .Values.namespacesToLabel }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ . }}
+  labels:
+    {{- include "estabilis.labels" $ | nindent 4 }}
+    estabilis.io/managed-by: platform
+    kyverno.io/exclude: "true"
+  annotations:
+    {{- include "estabilis.annotations" $ | nindent 4 }}
+{{- end }}

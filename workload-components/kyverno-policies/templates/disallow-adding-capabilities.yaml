@@ -1,0 +1,73 @@
+{{- if .Values.policies.disallow_adding_capabilities.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-adding-capabilities
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Disallow Adding Capabilities
+    policies.kyverno.io/description: >-
+      Prevents containers from adding Linux capabilities beyond the default set.
+      Adding capabilities such as NET_ADMIN or SYS_ADMIN can be used to escalate
+      privileges and break container isolation.
+spec:
+  validationFailureAction: {{ .Values.policies.disallow_adding_capabilities.action | default "Audit" }}
+  background: true
+  rules:
+    - name: adding-capabilities-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must not add Linux capabilities."
+        foreach:
+          - list: "request.object.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.securityContext.capabilities.add || '' | length(@) }}`}}"
+                    operator: GreaterThan
+                    value: 0
+    - name: adding-capabilities-controllers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must not add Linux capabilities."
+        foreach:
+          - list: "request.object.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.securityContext.capabilities.add || '' | length(@) }}`}}"
+                    operator: GreaterThan
+                    value: 0
+    - name: adding-capabilities-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+{{ include "kyverno-policies.platform-exclude" . }}
+      validate:
+        message: "Containers must not add Linux capabilities."
+        foreach:
+          - list: "request.object.spec.jobTemplate.spec.template.spec.[containers, initContainers, ephemeralContainers][]"
+            deny:
+              conditions:
+                any:
+                  - key: "{{`{{ element.securityContext.capabilities.add || '' | length(@) }}`}}"
+                    operator: GreaterThan
+                    value: 0
+{{- end }}
