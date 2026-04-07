@@ -9,14 +9,20 @@
 # ============================================================================
 
 # ----------------------------------------------------------------------------
-# Estabilis branding — applied to every resource Kyverno renders.
-# Kyverno chart supports customLabels / customAnnotations at the top level.
+# Estabilis branding — additive labels on every resource Kyverno renders.
+#
+# IMPORTANT: do NOT override app.kubernetes.io/* keys here. The Kyverno
+# chart uses a fixed set of those labels to build Deployment selectors
+# (which are immutable after creation). Overriding them causes
+# "selector does not match template" on first apply.
+#
+# Only estabilis.io/* keys are safe to add — they're not referenced by
+# any selector, purely additive metadata for operators and policies.
 # ----------------------------------------------------------------------------
 customLabels:
   estabilis.io/component: kyverno
   estabilis.io/tier: workload-baseline
-  app.kubernetes.io/part-of: estabilis-platform
-  app.kubernetes.io/managed-by: Helm
+  estabilis.io/platform: "Estabilis Platform"
 
 # Note: the `customAnnotations` key is not (yet) a first-class Kyverno value,
 # so provenance annotations are emitted via the workload-bootstrap chart on
