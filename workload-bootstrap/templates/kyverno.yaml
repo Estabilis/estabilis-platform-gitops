@@ -1,0 +1,89 @@
+{{- /*
+  Kyverno bootstrap for every workload cluster registered by the
+  estabilis-workload-operator.
+
+  Opt-in toggle: components.kyverno in workload-bootstrap/values.yaml
+  (flat boolean, mirroring platform-root convention).
+
+  The rendered ApplicationSet uses a clusters generator keyed off
+  .Values.clusterSelector.matchLabels — the same label the operator
+  writes on ArgoCD Cluster Secrets when it registers a workload.
+
+  Multi-source Application:
+    1) Upstream Kyverno chart (pinned, OCI-cached).
+    2) This repo as $values — provides our overlay in
+       workload-components/kyverno/values.yaml.
+
+  managedNamespaceMetadata mirrors platform-root.managedNamespaceMetadata
+  and carries distinct platform-version (hub repo) and
+  workload-bootstrap-version (this chart) for full provenance.
+*/ -}}
+{{- if index .Values.components "kyverno" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workload-kyverno
+  namespace: argocd
+spec:
+  # Re-render on generator changes + cluster label changes
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "workload-kyverno-{{ `{{name}}` }}"
+      labels:
+        # Context label only — identifies which workload cluster this
+        # Application targets. Useful for filtering in ArgoCD UI. All
+        # branding (managed-by, platform, version, etc.) is applied to
+        # the TARGET namespace via managedNamespaceMetadata below,
+        # mirroring platform-root convention.
+        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+    spec:
+      project: default
+      sources:
+        # 1) Upstream chart, pulled from OCI (content-addressed, cacheable)
+        - repoURL: "https://kyverno.github.io/kyverno"
+          chart: "kyverno"
+          targetRevision: "3.7.1"
+          helm:
+            releaseName: "kyverno"
+            valueFiles:
+              - $values/workload-components/kyverno/values.yaml
+        # 2) This repo as $values — provides the overlay for the upstream chart
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+      destination:
+        server: "{{ `{{server}}` }}"
+        namespace: "kyverno"
+      {{- /*
+        Ignore label/annotation drift on CRDs — matches the hub's
+        kyverno.yaml template. Without this, every sync flaps because
+        mutate.inject-platform-label rewrites CRD metadata after
+        ArgoCD applies it.
+      */}}
+      ignoreDifferences:
+        - group: apiextensions.k8s.io
+          kind: CustomResourceDefinition
+          jqPathExpressions:
+            - .metadata.annotations
+            - .metadata.labels
+      syncPolicy:
+        {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
+        automated:
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+{{- end }}

@@ -1,16 +1,20 @@
 # ============================================================================
 # workload-bootstrap — defaults
 # ============================================================================
-# Overridden per client via overrides/workload-bootstrap/values.yaml in the
-# client's downstream repo (same pattern as overrides/platform-root/values.yaml).
+# Rendered by the hub's ArgoCD for every workload cluster registered by the
+# estabilis-workload-operator. Follows the SAME toggle convention as
+# estabilis-platform/bootstrap/platform-root/values.yaml so operators and
+# clients see one pattern, not two.
+#
+# Downstream can override via overrides/workload-bootstrap/values.yaml in the
+# client's private platform repo (identical mechanism to overrides/platform-root/).
 # ============================================================================
 
-# Version of this repo (estabilis-platform-gitops) that the nested
-# Application should pin to when reading $values. Kept in sync with
-# the Application's targetRevision in estabilis-platform so $values
-# always matches the rendered templates.
+# Version of this repo (estabilis-platform-gitops) that nested Applications
+# should pin to when reading $values. Kept in sync with the hub Application's
+# targetRevision so $values always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.1.7
+repoVersion: v0.2.0
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
@@ -20,7 +24,7 @@ repoVersion: v0.1.7
 # which tracks the GitOps layer. "unknown" is the standalone/render fallback.
 platformVersion: unknown
 
-# Label selector used by the ApplicationSet cluster generator to detect
+# Label selector used by the ApplicationSet clusters generator to detect
 # workload clusters. This is the label the estabilis-workload-operator
 # writes on the ArgoCD Cluster Secret (verified on 2026-04-07 with operator
 # v0.3.6). Changing this requires updating the operator.
@@ -28,41 +32,19 @@ clusterSelector:
   matchLabels:
     estabilis.io/managed-by: workload-operator
 
-# Per-component configuration. Each component becomes one Application
-# rendered by the ApplicationSet for every workload cluster that matches
-# the selector above.
+# ---------------------------------------------------------------------------
+# Component Toggles
+# ---------------------------------------------------------------------------
+# Controls which workload-side components are bootstrapped. Flat boolean
+# map mirroring bootstrap/platform-root/values.yaml.components convention.
+#
+# Each enabled component has a matching template in templates/<name>.yaml
+# that defines its ApplicationSet (chart coordinates, sync policy,
+# managedNamespaceMetadata flavor, ignoreDifferences, etc.).
+#
+# Classification (v1 workload bootstrap — minimal):
+#   core — CANNOT be disabled without breaking the workload baseline
 components:
-
-  kyverno:
-    enabled: true
-    # Upstream chart coordinates — same repo and version as the hub
-    # (estabilis-platform/core/components/kyverno) so both sides stay
-    # in lockstep. Bump together.
-    chart:
-      repoURL: https://kyverno.github.io/kyverno
-      chart: kyverno
-      targetRevision: 3.7.1
-    # Destination on the workload cluster
-    namespace: kyverno
-    # Values file read from THIS repo as $values (multi-source Application)
-    valuesPath: workload-components/kyverno/values.yaml
-    # ArgoCD sync options for this component.
-    # Mirrors the hub Kyverno Application exactly:
-    #   - automated.selfHeal only (NO prune — prune fights with helm hook
-    #     Jobs that complete and get deleted, causing flapping)
-    #   - RespectIgnoreDifferences pairs with the CRD metadata
-    #     ignoreDifferences block in the ApplicationSet template
-    #   - retry policy identical to the hub
-    syncPolicy:
-      automated:
-        selfHeal: true
-      retry:
-        limit: 10
-        backoff:
-          duration: 10s
-          factor: 2
-          maxDuration: 3m
-      syncOptions:
-        - CreateNamespace=true
-        - ServerSideApply=true
-        - RespectIgnoreDifferences=true
+  # --- core ---
+  kyverno: true   # core: admission/background/cleanup/reports controllers
+                  #       (no policies yet — see roadmap for v0.3.0)
