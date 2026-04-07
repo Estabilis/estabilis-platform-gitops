@@ -1,0 +1,47 @@
+{{- $root := . -}}
+{{- range $name, $component := .Values.components -}}
+{{- if $component.enabled }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workload-{{ $name }}
+  namespace: argocd
+  {{- include "estabilis.metadata" $root | nindent 2 }}
+spec:
+  # Re-render on generator changes + cluster label changes
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml $root.Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "workload-{{ $name }}-{{ `{{name}}` }}"
+      labels:
+        {{- include "estabilis.labels" $root | nindent 8 }}
+        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+      annotations:
+        {{- include "estabilis.annotations" $root | nindent 8 }}
+    spec:
+      project: default
+      sources:
+        # 1) Upstream chart, pulled from OCI (content-addressed, cacheable)
+        - repoURL: {{ $component.chart.repoURL | quote }}
+          chart: {{ $component.chart.chart | quote }}
+          targetRevision: {{ $component.chart.targetRevision | quote }}
+          helm:
+            releaseName: {{ $name | quote }}
+            valueFiles:
+              - $values/{{ $component.valuesPath }}
+        # 2) This repo as $values — provides the overlay for the upstream chart
+        - repoURL: {{ $root.Values.repoURL | quote }}
+          targetRevision: {{ $root.Values.repoVersion | quote }}
+          ref: values
+      destination:
+        server: "{{ `{{server}}` }}"
+        namespace: {{ $component.namespace | quote }}
+      syncPolicy:
+        {{- toYaml $component.syncPolicy | nindent 8 }}
+{{- end }}
+{{- end }}

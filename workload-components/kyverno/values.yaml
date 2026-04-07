@@ -1,0 +1,81 @@
+# ============================================================================
+# Kyverno values overlay — injected into the upstream Kyverno chart via the
+# multi-source Application rendered by workload-bootstrap.
+#
+# Source: ghcr.io/kyverno/charts/kyverno (version pinned in
+# workload-bootstrap/values.yaml → components.kyverno.chart.targetRevision)
+#
+# Reference: https://kyverno.github.io/kyverno/
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Estabilis branding — applied to every resource Kyverno renders.
+# Kyverno chart supports customLabels / customAnnotations at the top level.
+# ----------------------------------------------------------------------------
+customLabels:
+  estabilis.io/component: kyverno
+  estabilis.io/tier: workload-baseline
+  app.kubernetes.io/part-of: estabilis-platform
+  app.kubernetes.io/managed-by: Helm
+
+# Note: the `customAnnotations` key is not (yet) a first-class Kyverno value,
+# so provenance annotations are emitted via the workload-bootstrap chart on
+# the ApplicationSet itself and propagated per-object via Kyverno mutate
+# policies (future: tracked for v0.2.x).
+
+# ----------------------------------------------------------------------------
+# Admission controller — baseline sizing for a workload cluster.
+# Tuned conservatively; override per client as needed.
+# ----------------------------------------------------------------------------
+admissionController:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# Background controller — scans existing resources for policy violations.
+backgroundController:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+# Cleanup controller — handles TTL / cleanup policies.
+cleanupController:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+# Reports controller — emits PolicyReport CRs from background scans.
+reportsController:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+# ----------------------------------------------------------------------------
+# Policy reporting — keep reports on by default; they cost little and
+# give observability into what Kyverno is doing.
+# ----------------------------------------------------------------------------
+config:
+  metricsConfig:
+    enable: true
+
+# ----------------------------------------------------------------------------
+# No policies shipped in v0.1.0 — this chart only installs the Kyverno
+# engine. Actual ClusterPolicy/Policy resources land in a separate
+# component (workload-kyverno-policies) in a later release.
+# ----------------------------------------------------------------------------

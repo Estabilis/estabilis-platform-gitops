@@ -1,0 +1,14 @@
+# Helm
+charts/*.tgz
+**/charts/*.tgz
+Chart.lock
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local experiments
+*.local.*
+scratch/

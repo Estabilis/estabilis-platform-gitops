@@ -1,0 +1,9 @@
+apiVersion: v2
+name: workload-bootstrap
+description: |
+  ApplicationSet that bootstraps the Estabilis baseline on every
+  workload cluster registered by the estabilis-workload-operator.
+  Rendered by the hub's ArgoCD. See ADR 0001.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,46 @@
+# ============================================================================
+# workload-bootstrap — defaults
+# ============================================================================
+# Overridden per client via overrides/workload-bootstrap/values.yaml in the
+# client's downstream repo (same pattern as overrides/platform-root/values.yaml).
+# ============================================================================
+
+# Version of this repo (estabilis-platform-gitops) that the nested
+# Application should pin to when reading $values. Kept in sync with
+# the Application's targetRevision in estabilis-platform so $values
+# always matches the rendered templates.
+repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
+repoVersion: v0.1.0
+
+# Label selector used by the ApplicationSet cluster generator to detect
+# workload clusters. This is the label the estabilis-workload-operator
+# writes on the ArgoCD Cluster Secret (verified on 2026-04-07 with operator
+# v0.3.6). Changing this requires updating the operator.
+clusterSelector:
+  matchLabels:
+    estabilis.io/managed-by: workload-operator
+
+# Per-component configuration. Each component becomes one Application
+# rendered by the ApplicationSet for every workload cluster that matches
+# the selector above.
+components:
+
+  kyverno:
+    enabled: true
+    # Upstream chart coordinates — content-addressed OCI via ghcr
+    chart:
+      repoURL: ghcr.io/kyverno/charts
+      chart: kyverno
+      targetRevision: 3.4.3
+    # Destination on the workload cluster
+    namespace: kyverno
+    # Values file read from THIS repo as $values (multi-source Application)
+    valuesPath: workload-components/kyverno/values.yaml
+    # ArgoCD sync options for this component
+    syncPolicy:
+      automated:
+        prune: true
+        selfHeal: true
+      syncOptions:
+        - CreateNamespace=true
+        - ServerSideApply=true
