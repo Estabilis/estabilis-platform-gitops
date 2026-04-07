@@ -5,31 +5,24 @@
 # Source: https://kyverno.github.io/kyverno (version pinned in
 # workload-bootstrap/values.yaml → components.kyverno.chart.targetRevision)
 #
-# IMPORTANT: this file is kept in lockstep with the hub's
-# estabilis-platform/core/components/kyverno/values.yaml. Any production
-# hardening added there MUST be mirrored here so the workload cluster
-# benefits from the same fixes (bitnami image migration, hook removals,
-# webhook cleanup disabled, etc.).
+# LOCKSTEP WITH THE HUB.
+# This file MUST mirror estabilis-platform/core/components/kyverno/values.yaml
+# as closely as possible. Only deviate when there is a documented reason.
+# When the hub bumps this chart, bump here too, in the same PR.
 #
 # Reference: https://kyverno.github.io/kyverno/
 # ============================================================================
 
-# ----------------------------------------------------------------------------
-# Estabilis branding — additive labels only (estabilis.io/*).
-# Do NOT override app.kubernetes.io/* keys here — the Kyverno chart uses
-# them to build immutable Deployment selectors.
-# ----------------------------------------------------------------------------
-customLabels:
+commonLabels:
   estabilis.io/managed-by: workload-bootstrap
   estabilis.io/component: kyverno
-  estabilis.io/tier: workload-baseline
-  estabilis.io/part-of: estabilis-platform
 
-# ----------------------------------------------------------------------------
-# Webhook exclusion — namespaces with label kyverno.io/exclude=true are
-# completely ignored by Kyverno (no admission, no validation, no mutation).
-# Same pattern as the hub for operator consistency.
-# ----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Global namespace exclusion via webhook namespaceSelector
+# Namespaces with label kyverno.io/exclude=true are completely ignored
+# by Kyverno — no admission, no validation, no mutation.
+# Same pattern as the hub so operators apply the same label everywhere.
+# ---------------------------------------------------------------------------
 config:
   webhooks:
     namespaceSelector:
@@ -37,9 +30,6 @@ config:
         - key: kyverno.io/exclude
           operator: DoesNotExist
 
-# ----------------------------------------------------------------------------
-# Controllers — production-hardened settings mirrored from the hub.
-# ----------------------------------------------------------------------------
 admissionController:
   replicas: 1
   container:
@@ -133,27 +123,11 @@ reportsController:
   metricsService:
     create: true
 
-# ----------------------------------------------------------------------------
-# CRITICAL: disable pre-delete / cleanup hooks.
-#
-# The Kyverno chart ships with several hook-based Jobs (webhooksCleanup,
-# policyReportsCleanup, etc.) that use the admission-controller
-# ServiceAccount BEFORE the chart creates it, and historically pulled
-# bitnami/kubectl images that no longer exist on Docker Hub. This is the
-# same fix applied to the hub in estabilis-platform@c7216a0.
-#
-# Without this, a clean install fails with ImagePullBackOff on
-# kyverno-clean-reports / kyverno-hook-pre-delete.
-# ----------------------------------------------------------------------------
+# Disable pre-delete hooks — they fail on clean installs because they reference
+# the admission-controller ServiceAccount before the chart creates it.
+# Webhook cleanup is handled by the resync nuke phase instead.
 webhooksCleanup:
   enabled: false
 
-policyReportsCleanup:
-  enabled: false
-
-# ----------------------------------------------------------------------------
-# Grafana integration — disabled; metrics are exposed by metricsService
-# and scraped independently. No bundled Grafana dashboards.
-# ----------------------------------------------------------------------------
 grafana:
   enabled: false
