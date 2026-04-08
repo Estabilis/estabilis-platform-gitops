@@ -21,6 +21,23 @@ estabilis.io/website: "https://estabilis.com"
 estabilis.io/source: "https://github.com/Estabilis/estabilis-platform"
 estabilis.io/support: "ops@estabilis.com"
 estabilis.io/license: "proprietary"
+{{- include "estabilis.provenanceAnnotations" . }}
+{{- end -}}
+
+{{/*
+ADR 0005 Phase 2b — supply-chain L1 provenance annotations, populated
+from global.provenance.* at render time. The CLI sets these values via
+helm.parameters propagated from platform-root
+(see platform-root.provenanceParameters). The three-level guard keeps
+helm template standalone-renderable when the values are absent.
+*/}}
+{{- define "estabilis.provenanceAnnotations" -}}
+{{- if and .Values.global .Values.global.provenance .Values.global.provenance.gitRevision }}
+estabilis.io/git-revision: {{ .Values.global.provenance.gitRevision | quote }}
+estabilis.io/git-source: {{ .Values.global.provenance.gitSource | quote }}
+estabilis.io/built-at: {{ .Values.global.provenance.builtAt | quote }}
+estabilis.io/build-id: {{ .Values.global.provenance.buildId | quote }}
+{{- end }}
 {{- end -}}
 
 {{- define "estabilis.metadata" -}}

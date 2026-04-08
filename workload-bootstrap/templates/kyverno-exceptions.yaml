@@ -46,6 +46,7 @@ spec:
             releaseName: "kyverno-exceptions"
             valueFiles:
               - $values/workload-components/kyverno-exceptions/values.yaml
+            {{- include "workload-bootstrap.provenanceParametersBlock" $ | nindent 12 }}
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}
           ref: values

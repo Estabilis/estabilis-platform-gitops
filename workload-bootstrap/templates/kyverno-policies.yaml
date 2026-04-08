@@ -54,6 +54,7 @@ spec:
             releaseName: "kyverno-policies"
             valueFiles:
               - $values/workload-components/kyverno-policies/values.yaml
+            {{- include "workload-bootstrap.provenanceParametersBlock" $ | nindent 12 }}
         # 2) This repo as $values — overlay source
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}
