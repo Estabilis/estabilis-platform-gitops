@@ -15,6 +15,12 @@ estabilis.io/website: "https://estabilis.com"
 estabilis.io/source: "https://github.com/Estabilis/estabilis-platform-gitops"
 estabilis.io/support: "ops@estabilis.com"
 estabilis.io/license: "proprietary"
+{{- if and .Values.global .Values.global.provenance .Values.global.provenance.gitRevision }}
+estabilis.io/git-revision: {{ .Values.global.provenance.gitRevision | quote }}
+estabilis.io/git-source: {{ .Values.global.provenance.gitSource | quote }}
+estabilis.io/built-at: {{ .Values.global.provenance.builtAt | quote }}
+estabilis.io/build-id: {{ .Values.global.provenance.buildId | quote }}
+{{- end }}
 {{- end -}}
 
 {{/*
