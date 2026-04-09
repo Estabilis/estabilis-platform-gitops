@@ -1,0 +1,64 @@
+{{- /*
+  Client-authored Kyverno PolicyExceptions for workload clusters.
+
+  Reads raw PolicyException manifests from the client's gitops repo at
+  policies/exceptions/. These are NOT helm-templated — they are plain
+  Kubernetes YAML applied directly via ArgoCD's directory source.
+
+  Only active when clientGitopsRepoUrl is set. When empty, this
+  ApplicationSet renders nothing (the entire block is skipped).
+
+  Separate from the platform kyverno-exceptions ApplicationSet because
+  ArgoCD multi-source Applications cannot mix helm + directory source
+  types for the same Application. Each needs its own ApplicationSet.
+
+  Sync-wave 5 — after platform kyverno-exceptions (wave 4) so the
+  platform policies are established before client exceptions are applied.
+
+  See ADR 0009 §2 Layer 3 (downstream override) and issue #86.
+*/ -}}
+{{- if and (index .Values.components "kyverno-exceptions") .Values.clientGitopsRepoUrl }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workload-client-kyverno-exceptions
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "workload-client-exceptions-{{ `{{name}}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "5"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+    spec:
+      project: default
+      source:
+        repoURL: {{ .Values.clientGitopsRepoUrl | quote }}
+        targetRevision: {{ .Values.clientGitopsRepoVersion | default "HEAD" | quote }}
+        path: policies/exceptions
+        directory:
+          recurse: true
+      destination:
+        server: "{{ `{{server}}` }}"
+        namespace: "kyverno"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - ServerSideApply=true
+          - CreateNamespace=false
+{{- end }}
