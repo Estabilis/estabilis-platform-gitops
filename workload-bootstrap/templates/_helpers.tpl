@@ -131,3 +131,21 @@ the ApplicationSets work exactly as before.
 ignoreMissingValueFiles: true
 {{- end }}
 {{- end -}}
+
+{{/*
+Client GitOps override helpers (ADR 0008 Tier 3).
+*/}}
+
+{{- define "workload-bootstrap.gitopsSource" -}}
+{{- if and .Values.clientGitopsRepoUrl .Values.deploymentId }}
+- repoURL: {{ .Values.clientGitopsRepoUrl }}
+  targetRevision: {{ .Values.clientGitopsRepoVersion | default "HEAD" }}
+  ref: gitops
+{{- end }}
+{{- end -}}
+
+{{- define "workload-bootstrap.gitopsValueFile" -}}
+{{- if and .root.Values.clientGitopsRepoUrl .root.Values.deploymentId }}
+- $gitops/platforms/{{ .root.Values.deploymentId }}/overrides/{{ .component }}/values.yaml
+{{- end }}
+{{- end -}}

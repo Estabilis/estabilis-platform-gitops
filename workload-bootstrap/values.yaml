@@ -85,3 +85,14 @@ components:
 # URL and version as helm parameters.
 configRepoUrl: ""
 configRepoVersion: ""
+
+# ---------------------------------------------------------------------------
+# Client GitOps repo (ADR 0008 Tier 3 — per-client override source)
+# ---------------------------------------------------------------------------
+# Passed from the hub as helm parameters. The workload-bootstrap
+# ApplicationSets forward these to each child Application so kyverno
+# (and future components) can read per-platform overrides from the
+# client's gitops repo.
+clientGitopsRepoUrl: ""
+clientGitopsRepoVersion: ""
+deploymentId: ""

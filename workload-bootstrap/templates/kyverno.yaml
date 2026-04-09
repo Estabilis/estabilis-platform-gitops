@@ -59,7 +59,8 @@ spec:
               - $values/workload-components/kyverno/values.yaml
               - $values/values/workload/kyverno.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "kyverno" "root" $) | nindent 14 }}
-            {{- include "workload-bootstrap.ignoreMissingValueFiles" $ | nindent 12 }}
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "kyverno" "root" $) | nindent 14 }}
+            ignoreMissingValueFiles: true
             parameters:
               - name: global.environment
                 value: {{ .Values.global.environment | quote }}
@@ -70,6 +71,7 @@ spec:
           ref: values
         # 3) Client override repo (conditional — only when configRepoUrl is set)
         {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
       destination:
         server: "{{ `{{server}}` }}"
         namespace: "kyverno"
