@@ -30,6 +30,7 @@ spec:
       context:
         - name: limitRangeCount
           apiCall:
+            method: GET
             urlPath: "/api/v1/namespaces/{{`{{request.namespace}}`}}/limitranges"
             jmesPath: "items | length(@)"
       validate:
