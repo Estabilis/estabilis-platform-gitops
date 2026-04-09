@@ -2,3 +2,16 @@
 commonLabels:
   estabilis.io/managed-by: workload-bootstrap
   estabilis.io/component: kyverno
+
+# Webhook hardening for batch policy deployment.
+# Fresh workload clusters deploy 30 ClusterPolicies at once — the
+# policy-validation webhook with default 10s timeout cannot validate the
+# batch, causing perpetual SyncFailed with context deadline exceeded.
+#
+# forceFailurePolicyIgnore: all webhooks use Ignore instead of Fail.
+# When the webhook times out, the request proceeds (policy still validated
+# asynchronously by the background-controller). This prevents webhook
+# failures from blocking ArgoCD sync operations.
+features:
+  forceFailurePolicyIgnore:
+    enabled: true
