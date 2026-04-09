@@ -72,6 +72,15 @@ spec:
       destination:
         server: "{{ `{{server}}` }}"
         namespace: "cert-manager"
+      ignoreDifferences:
+        - group: admissionregistration.k8s.io
+          kind: ValidatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[].namespaceSelector
+        - group: admissionregistration.k8s.io
+          kind: MutatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[].namespaceSelector
       syncPolicy:
         {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
         automated:
@@ -84,4 +93,6 @@ spec:
             maxDuration: 3m
         syncOptions:
           - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
 {{- end }}
