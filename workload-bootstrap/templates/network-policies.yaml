@@ -64,9 +64,21 @@ spec:
               # for namespaces that actually exist on this workload cluster.
               # The chart gates each policy on policies.{ns}.enabled AND
               # components.{ns} — both must be true for the policy to render.
+              #
+              # Active components from workload-bootstrap values:
               {{- range $name, $enabled := .Values.components }}
               - name: components.{{ $name }}
                 value: {{ $enabled | quote }}
+              {{- end }}
+              # Explicitly disable components NOT in the workload baseline.
+              # Without this, the chart's default (true) would create
+              # policies for platform-only namespaces that don't exist.
+              {{- $chartNamespaces := list "grafana" "argocd" "cert-manager" "external-secrets" "external-dns" "cnpg" "traefik" "velero" "opencost" "trivy" "kube-state-metrics" "node-exporter" "policy-reporter" }}
+              {{- range $ns := $chartNamespaces }}
+              {{- if not (hasKey $.Values.components $ns) }}
+              - name: components.{{ $ns }}
+                value: "false"
+              {{- end }}
               {{- end }}
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         # 2) This repo as $values — overlay source

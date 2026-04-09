@@ -64,6 +64,14 @@ spec:
               - name: components.{{ $name }}
                 value: {{ $enabled | quote }}
               {{- end }}
+              # Explicitly disable components NOT in the workload baseline
+              {{- $chartNamespaces := list "grafana" "argocd" "cert-manager" "external-secrets" "external-dns" "cnpg-system" "traefik" "velero" "opencost" "trivy-system" "kube-state-metrics" "node-exporter" }}
+              {{- range $ns := $chartNamespaces }}
+              {{- if not (hasKey $.Values.components $ns) }}
+              - name: components.{{ $ns }}
+                value: "false"
+              {{- end }}
+              {{- end }}
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         # 2) This repo as $values — overlay source
         - repoURL: {{ .Values.repoURL | quote }}
