@@ -67,3 +67,20 @@ components:
   kyverno: true              # core: admission/background/cleanup/reports controllers
   kyverno-policies: true     # core: ClusterPolicies (29 baseline rules, all Audit mode)
   kyverno-exceptions: true   # core: PolicyException CRDs + namespace labels
+
+# ---------------------------------------------------------------------------
+# Downstream override repo (per-client configuration)
+# ---------------------------------------------------------------------------
+# When both values are set, each workload ApplicationSet gains a third
+# source ($overrides) that reads component-specific overrides from the
+# client's downstream config repo. Path convention:
+#   $overrides/overrides/{component}/values.yaml
+#
+# Without these values, the override source is disabled (no-op) and
+# all workload clusters use the base chart values only.
+#
+# Set by the platform-root Application template when rendering
+# workload-bootstrap — the hub passes the client's downstream repo
+# URL and version as helm parameters.
+configRepoUrl: ""
+configRepoVersion: ""

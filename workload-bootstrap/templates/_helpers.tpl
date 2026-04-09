@@ -92,3 +92,42 @@ parameters:
   {{- include "workload-bootstrap.provenanceParameters" . | nindent 2 }}
 {{- end }}
 {{- end -}}
+
+{{/*
+Override helpers — allow downstream config repos to customize component
+values per cluster/environment. Mirrors the platform-root override
+pattern (see estabilis-platform/bootstrap/platform-root/templates/_helpers.tpl).
+
+When configRepoUrl AND configRepoVersion are set in workload-bootstrap
+values.yaml, each ApplicationSet template gains:
+  - A third source ($overrides) pointing at the config repo
+  - An extra valueFile path reading from $overrides/overrides/{component}/values.yaml
+  - ignoreMissingValueFiles: true so missing override files are not errors
+
+Without both values set, all three helpers render nothing (no-op) and
+the ApplicationSets work exactly as before.
+*/}}
+
+{{- define "workload-bootstrap.overrideEnabled" -}}
+{{- and .Values.configRepoUrl .Values.configRepoVersion -}}
+{{- end -}}
+
+{{- define "workload-bootstrap.overrideSource" -}}
+{{- if and .Values.configRepoUrl .Values.configRepoVersion }}
+- repoURL: {{ .Values.configRepoUrl }}
+  targetRevision: {{ .Values.configRepoVersion }}
+  ref: overrides
+{{- end }}
+{{- end -}}
+
+{{- define "workload-bootstrap.overrideValueFile" -}}
+{{- if and .root.Values.configRepoUrl .root.Values.configRepoVersion }}
+- $overrides/overrides/{{ .component }}/values.yaml
+{{- end }}
+{{- end -}}
+
+{{- define "workload-bootstrap.ignoreMissingValueFiles" -}}
+{{- if and .Values.configRepoUrl .Values.configRepoVersion }}
+ignoreMissingValueFiles: true
+{{- end }}
+{{- end -}}

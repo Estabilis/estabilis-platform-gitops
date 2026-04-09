@@ -57,10 +57,14 @@ spec:
             releaseName: "kyverno"
             valueFiles:
               - $values/workload-components/kyverno/values.yaml
+              {{- include "workload-bootstrap.overrideValueFile" (dict "component" "kyverno" "root" $) | nindent 14 }}
+            {{- include "workload-bootstrap.ignoreMissingValueFiles" $ | nindent 12 }}
         # 2) This repo as $values — provides the overlay for the upstream chart
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}
           ref: values
+        # 3) Client override repo (conditional — only when configRepoUrl is set)
+        {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
       destination:
         server: "{{ `{{server}}` }}"
         namespace: "kyverno"
