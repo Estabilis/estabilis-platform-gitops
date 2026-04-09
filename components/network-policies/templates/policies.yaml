@@ -2,7 +2,7 @@
 # grafana namespace
 # Components: grafana, loki, mimir, tempo, alloy
 # =============================================================================
-{{- if .Values.policies.grafana.enabled }}
+{{- if and .Values.policies.grafana.enabled (ne (.Values.components.grafana | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -52,7 +52,7 @@ spec:
 # argocd namespace
 # Needs broad egress: github, chart registries, kubernetes API
 # =============================================================================
-{{- if .Values.policies.argocd.enabled }}
+{{- if and .Values.policies.argocd.enabled (ne (.Values.components.argocd | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -74,7 +74,7 @@ spec:
 # Needs broad egress: Let's Encrypt ACME, Azure DNS API
 # Ingress: webhook from API server
 # =============================================================================
-{{- if (index .Values.policies "cert-manager").enabled }}
+{{- if and (index .Values.policies "cert-manager").enabled (ne (index .Values.components "cert-manager" | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -102,7 +102,7 @@ spec:
 # Needs broad egress: Azure Key Vault
 # Ingress: webhook from API server, metrics scraping from grafana
 # =============================================================================
-{{- if (index .Values.policies "external-secrets").enabled }}
+{{- if and (index .Values.policies "external-secrets").enabled (ne (index .Values.components "external-secrets" | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -134,7 +134,7 @@ spec:
 # external-dns namespace
 # Needs broad egress: Azure DNS API
 # =============================================================================
-{{- if (index .Values.policies "external-dns").enabled }}
+{{- if and (index .Values.policies "external-dns").enabled (ne (index .Values.components "external-dns" | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -156,7 +156,7 @@ spec:
 # Needs broad egress: Azure Blob for WAL backup
 # Ingress: webhook, operator status, replication, postgres clients
 # =============================================================================
-{{- if (index .Values.policies "cnpg-system").enabled }}
+{{- if and (index .Values.policies "cnpg-system").enabled (ne (.Values.components.cnpg | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -198,7 +198,7 @@ spec:
 # Needs broad egress: kubernetes API for webhooks
 # Ingress: all (webhook callbacks from API server)
 # =============================================================================
-{{- if .Values.policies.kyverno.enabled }}
+{{- if and .Values.policies.kyverno.enabled (ne (.Values.components.kyverno | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -224,7 +224,7 @@ spec:
 # Egress: DNS, grafana namespace (backend routing)
 # Ingress: all (Azure Load Balancer, external traffic)
 # =============================================================================
-{{- if .Values.policies.traefik.enabled }}
+{{- if and .Values.policies.traefik.enabled (ne (.Values.components.traefik | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -262,7 +262,7 @@ spec:
 # velero namespace
 # Needs broad egress: Azure Blob, kubernetes API
 # =============================================================================
-{{- if .Values.policies.velero.enabled }}
+{{- if and .Values.policies.velero.enabled (ne (.Values.components.velero | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -283,7 +283,7 @@ spec:
 # opencost namespace
 # Needs broad egress: Azure API, grafana for metrics push
 # =============================================================================
-{{- if .Values.policies.opencost.enabled }}
+{{- if and .Values.policies.opencost.enabled (ne (.Values.components.opencost | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -305,7 +305,7 @@ spec:
 # Needs broad egress: container registries for scanning
 # Ingress: scan jobs connect to trivy-server (port 4954) in same namespace
 # =============================================================================
-{{- if (index .Values.policies "trivy-system").enabled }}
+{{- if and (index .Values.policies "trivy-system").enabled (ne (.Values.components.trivy | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -334,7 +334,7 @@ spec:
 # Needs broad egress: kubernetes API
 # Ingress: alloy scraping from grafana namespace
 # =============================================================================
-{{- if (index .Values.policies "kube-state-metrics").enabled }}
+{{- if and (index .Values.policies "kube-state-metrics").enabled (ne (index .Values.components "kube-state-metrics" | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -363,7 +363,7 @@ spec:
 # Egress: DNS only
 # Ingress: alloy scraping from grafana namespace
 # =============================================================================
-{{- if (index .Values.policies "node-exporter").enabled }}
+{{- if and (index .Values.policies "node-exporter").enabled (ne (index .Values.components "node-exporter" | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -391,7 +391,7 @@ spec:
 # Ingress: grafana namespace (Alloy metrics scraping)
 # Egress: DNS + kubernetes API
 # =============================================================================
-{{- if (index .Values.policies "policy-reporter").enabled }}
+{{- if and (index .Values.policies "policy-reporter").enabled (ne (index .Values.components "policy-reporter" | toString) "false") }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

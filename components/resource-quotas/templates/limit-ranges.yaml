@@ -1,5 +1,9 @@
 {{- range $ns, $quota := .Values.namespaces }}
-{{- if $quota.enabled }}
+{{- $componentActive := true }}
+{{- if hasKey $.Values.components $ns }}
+{{- $componentActive = ne (index $.Values.components $ns | toString) "false" }}
+{{- end }}
+{{- if and $quota.enabled $componentActive }}
 ---
 apiVersion: v1
 kind: LimitRange

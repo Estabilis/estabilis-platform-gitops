@@ -60,6 +60,10 @@ spec:
             parameters:
               - name: global.environment
                 value: {{ .Values.global.environment | quote }}
+              {{- range $name, $enabled := .Values.components }}
+              - name: components.{{ $name }}
+                value: {{ $enabled | quote }}
+              {{- end }}
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         # 2) This repo as $values — overlay source
         - repoURL: {{ .Values.repoURL | quote }}

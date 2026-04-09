@@ -4,6 +4,31 @@
 # Every namespace has a deny-all NetworkPolicy from Kyverno.
 # This component creates allow rules for legitimate traffic.
 # All pods need DNS egress (port 53 to kube-dns).
+#
+# Component-aware gating (ADR 0009):
+# Each policy is gated by BOTH policies.{ns}.enabled AND components.{ns}.
+# On the platform hub, components.* defaults to true (all namespaces exist).
+# On workload clusters, the workload-bootstrap ApplicationSet passes the
+# active components map as helm parameters — only namespaces with active
+# components get NetworkPolicies.
+
+# Active components — passed automatically by workload-bootstrap.
+# On the platform hub, everything defaults to true (no filtering).
+components:
+  grafana: true
+  argocd: true
+  cert-manager: true
+  external-secrets: true
+  external-dns: true
+  cnpg: true
+  kyverno: true
+  traefik: true
+  velero: true
+  opencost: true
+  trivy: true
+  kube-state-metrics: true
+  node-exporter: true
+  policy-reporter: true
 
 policies:
   grafana:

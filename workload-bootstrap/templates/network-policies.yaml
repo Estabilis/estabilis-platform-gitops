@@ -60,6 +60,14 @@ spec:
             parameters:
               - name: global.environment
                 value: {{ .Values.global.environment | quote }}
+              # Pass active components so the chart only creates policies
+              # for namespaces that actually exist on this workload cluster.
+              # The chart gates each policy on policies.{ns}.enabled AND
+              # components.{ns} — both must be true for the policy to render.
+              {{- range $name, $enabled := .Values.components }}
+              - name: components.{{ $name }}
+                value: {{ $enabled | quote }}
+              {{- end }}
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         # 2) This repo as $values — overlay source
         - repoURL: {{ .Values.repoURL | quote }}

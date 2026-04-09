@@ -7,6 +7,28 @@
 #     my-app:
 #       enabled: true
 #       # uses defaults below for both quota and limitRange
+#
+# Component-aware gating (ADR 0009):
+# On workload clusters, the workload-bootstrap ApplicationSet passes
+# the active components map as helm parameters. Each namespace quota
+# is gated by BOTH namespaces.{ns}.enabled AND components.{ns}.
+
+# Active components — defaults to true (platform hub has everything).
+# Overridden by workload-bootstrap parameters on workload clusters.
+components:
+  grafana: true
+  argocd: true
+  kyverno: true
+  cert-manager: true
+  trivy-system: true
+  external-secrets: true
+  cnpg-system: true
+  traefik: true
+  opencost: true
+  velero: true
+  external-dns: true
+  node-exporter: true
+  kube-state-metrics: true
 
 defaults:
   hard:
