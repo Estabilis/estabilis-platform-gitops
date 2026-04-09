@@ -1,0 +1,4 @@
+# Platform overlay — kube-state-metrics upstream chart values for the hub cluster
+commonLabels:
+  estabilis.io/managed-by: platform
+  estabilis.io/component: kube-state-metrics

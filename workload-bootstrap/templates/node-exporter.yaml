@@ -1,0 +1,80 @@
+{{- /*
+  node-exporter bootstrap for every workload cluster registered by the
+  estabilis-workload-operator.
+
+  Opt-in toggle: components.node-exporter in workload-bootstrap/values.yaml
+  (flat boolean, mirroring platform-root convention).
+
+  Upstream chart from prometheus-community (prometheus-node-exporter).
+  DaemonSet that exposes node-level OS metrics (CPU, memory, disk, network)
+  for Alloy to scrape and push to the hub's Mimir.
+
+  Multi-source Application:
+    1) Upstream prometheus-node-exporter chart (pinned).
+    2) This repo as $values — provides workload overlay.
+
+  managedNamespaceMetadata mirrors platform-root convention with
+  platform-version and workload-bootstrap-version for provenance.
+*/ -}}
+{{- if index .Values.components "node-exporter" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workload-node-exporter
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "workload-node-exporter-{{ `{{name}}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "8"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+    spec:
+      project: default
+      sources:
+        # 1) Upstream chart from prometheus-community
+        - repoURL: "https://prometheus-community.github.io/helm-charts"
+          chart: "prometheus-node-exporter"
+          targetRevision: "4.43.1"
+          helm:
+            releaseName: "node-exporter"
+            valueFiles:
+              - $values/workload-components/node-exporter/values.yaml
+              - $values/values/workload/node-exporter.yaml
+              {{- include "workload-bootstrap.overrideValueFile" (dict "component" "node-exporter" "root" $) | nindent 14 }}
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "node-exporter" "root" $) | nindent 14 }}
+            ignoreMissingValueFiles: true
+            parameters:
+              - name: global.environment
+                value: {{ .Values.global.environment | quote }}
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        # 2) This repo as $values — provides the overlay for the upstream chart
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+        # 3) Client override repo (conditional — only when configRepoUrl is set)
+        {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{server}}` }}"
+        namespace: "node-exporter"
+      syncPolicy:
+        {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
+        automated:
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}

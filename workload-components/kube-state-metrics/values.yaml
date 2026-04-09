@@ -1,0 +1,18 @@
+# ============================================================================
+# kube-state-metrics values overlay — injected into the upstream chart via the
+# multi-source Application rendered by workload-bootstrap.
+#
+# Source: https://prometheus-community.github.io/helm-charts (kube-state-metrics)
+# Version pinned in workload-bootstrap/templates/kube-state-metrics.yaml
+#
+# LOCKSTEP WITH THE HUB.
+# This file mirrors estabilis-platform/core/components/kube-state-metrics/values.yaml.
+# When the hub bumps this chart, bump here too, in the same PR.
+# ============================================================================
+
+commonLabels:
+  estabilis.io/managed-by: workload-bootstrap
+  estabilis.io/component: kube-state-metrics
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false

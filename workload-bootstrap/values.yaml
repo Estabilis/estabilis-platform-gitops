@@ -14,7 +14,7 @@
 # should pin to when reading $values. Kept in sync with the hub Application's
 # targetRevision so $values always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.6.0
+repoVersion: v0.7.0
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
@@ -68,6 +68,10 @@ components:
   kyverno: true              # core: admission/background/cleanup/reports controllers
   kyverno-policies: true     # core: ClusterPolicies (29 baseline rules, all Audit mode)
   kyverno-exceptions: true   # core: PolicyException CRDs + namespace labels
+
+  # --- observability ---
+  kube-state-metrics: true   # observability: Kubernetes object metrics (Deployment, Pod, Node state)
+  node-exporter: true        # observability: node-level OS metrics (CPU, memory, disk, network)
 
 # ---------------------------------------------------------------------------
 # Downstream override repo (per-client configuration)

@@ -1,0 +1,80 @@
+{{- /*
+  kube-state-metrics bootstrap for every workload cluster registered by the
+  estabilis-workload-operator.
+
+  Opt-in toggle: components.kube-state-metrics in workload-bootstrap/values.yaml
+  (flat boolean, mirroring platform-root convention).
+
+  Upstream chart from prometheus-community. Provides Kubernetes object
+  metrics (pod/deployment/node state) that Alloy scrapes and pushes to
+  the hub's Mimir.
+
+  Multi-source Application:
+    1) Upstream kube-state-metrics chart (pinned).
+    2) This repo as $values — provides workload overlay.
+
+  managedNamespaceMetadata mirrors platform-root convention with
+  platform-version and workload-bootstrap-version for provenance.
+*/ -}}
+{{- if index .Values.components "kube-state-metrics" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workload-kube-state-metrics
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "workload-kube-state-metrics-{{ `{{name}}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "8"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+    spec:
+      project: default
+      sources:
+        # 1) Upstream chart from prometheus-community
+        - repoURL: "https://prometheus-community.github.io/helm-charts"
+          chart: "kube-state-metrics"
+          targetRevision: "5.27.0"
+          helm:
+            releaseName: "kube-state-metrics"
+            valueFiles:
+              - $values/workload-components/kube-state-metrics/values.yaml
+              - $values/values/workload/kube-state-metrics.yaml
+              {{- include "workload-bootstrap.overrideValueFile" (dict "component" "kube-state-metrics" "root" $) | nindent 14 }}
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "kube-state-metrics" "root" $) | nindent 14 }}
+            ignoreMissingValueFiles: true
+            parameters:
+              - name: global.environment
+                value: {{ .Values.global.environment | quote }}
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        # 2) This repo as $values — provides the overlay for the upstream chart
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+        # 3) Client override repo (conditional — only when configRepoUrl is set)
+        {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{server}}` }}"
+        namespace: "kube-state-metrics"
+      syncPolicy:
+        {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
+        automated:
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}

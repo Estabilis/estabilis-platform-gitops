@@ -1,0 +1,23 @@
+# ============================================================================
+# node-exporter values overlay — injected into the upstream chart via the
+# multi-source Application rendered by workload-bootstrap.
+#
+# Source: https://prometheus-community.github.io/helm-charts (prometheus-node-exporter)
+# Version pinned in workload-bootstrap/templates/node-exporter.yaml
+#
+# LOCKSTEP WITH THE HUB.
+# This file mirrors estabilis-platform/core/components/node-exporter/values.yaml.
+# When the hub bumps this chart, bump here too, in the same PR.
+# ============================================================================
+
+commonLabels:
+  estabilis.io/managed-by: workload-bootstrap
+  estabilis.io/component: node-exporter
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
