@@ -72,6 +72,15 @@ spec:
       destination:
         server: "{{ `{{server}}` }}"
         namespace: "kyverno"
+      ignoreDifferences:
+        - group: kyverno.io
+          kind: ClusterPolicy
+          jqPathExpressions:
+            # Kyverno admission controller mutates ClusterPolicies after
+            # apply, injecting default fields not present in our manifests.
+            # Without this, every policy shows as OutOfSync permanently.
+            - .spec.rules[].skipBackgroundRequests
+            - .spec.rules[].validate.allowExistingViolations
       syncPolicy:
         retry:
           limit: 10
@@ -81,4 +90,5 @@ spec:
             maxDuration: 3m
         syncOptions:
           - ServerSideApply=true
+          - RespectIgnoreDifferences=true
 {{- end }}
