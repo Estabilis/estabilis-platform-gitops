@@ -16,12 +16,18 @@ features:
 
 # Scale admission controller to 3 replicas — distributes webhook
 # validation across pods, reducing per-pod queue depth from 30 to ~10.
+# 3 replicas per Kyverno scaling docs — distributes webhook validation
+# across pods. See: https://kyverno.io/docs/installation/scaling/
 admissionController:
   replicas: 3
   container:
     resources:
       requests:
-        cpu: 500m
+        cpu: 100m
         memory: 256Mi
       limits:
+        # CPU limit set high to avoid throttling (Kyverno best practice).
+        # Must be explicit — the kyverno namespace LimitRange injects
+        # default cpu limit of 100m which conflicts with higher requests.
+        cpu: 500m
         memory: 512Mi
