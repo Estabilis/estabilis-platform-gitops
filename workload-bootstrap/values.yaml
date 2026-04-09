@@ -36,6 +36,7 @@ platformVersion: unknown
 # Reference: estabilis-platform-tools/docs/adr/0005-supply-chain-provenance.md
 # ---------------------------------------------------------------------------
 global:
+  environment: ""
   provenance:
     gitRevision: ""
     gitSource: ""

@@ -56,7 +56,10 @@ spec:
               - $values/workload-components/kyverno-policies/values.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "kyverno-policies" "root" $) | nindent 14 }}
             {{- include "workload-bootstrap.ignoreMissingValueFiles" $ | nindent 12 }}
-            {{- include "workload-bootstrap.provenanceParametersBlock" $ | nindent 12 }}
+            parameters:
+              - name: global.environment
+                value: {{ .Values.global.environment | quote }}
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         # 2) This repo as $values — overlay source
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}
