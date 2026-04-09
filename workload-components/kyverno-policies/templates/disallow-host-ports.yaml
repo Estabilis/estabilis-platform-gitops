@@ -13,7 +13,7 @@ metadata:
       pod to a specific node and opens a port directly on the host network
       interface, bypassing network policies.
 spec:
-  validationFailureAction: {{ .Values.policies.disallow_host_ports.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.disallow_host_ports.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: host-ports-pods

@@ -14,7 +14,7 @@ metadata:
       traffic only to healthy instances. Only applies to client application
       namespaces.
 spec:
-  validationFailureAction: {{ .Values.policies.require_probes.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.require_probes.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: require-probes-controllers

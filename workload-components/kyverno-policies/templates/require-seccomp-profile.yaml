@@ -13,7 +13,7 @@ metadata:
       Seccomp profiles restrict the system calls a container can make, reducing
       the kernel attack surface.
 spec:
-  validationFailureAction: {{ .Values.policies.require_seccomp_profile.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.require_seccomp_profile.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: seccomp-pods

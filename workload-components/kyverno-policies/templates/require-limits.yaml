@@ -11,7 +11,7 @@ metadata:
     policies.kyverno.io/description: >-
       Requires all containers to define CPU and memory requests and limits.
 spec:
-  validationFailureAction: {{ .Values.policies.require_limits.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.require_limits.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: require-limits-pods

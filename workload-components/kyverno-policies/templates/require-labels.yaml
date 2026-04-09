@@ -13,7 +13,7 @@ metadata:
       to have the standard Estabilis platform labels for identification and
       ownership tracking. Only applies to client application namespaces.
 spec:
-  validationFailureAction: {{ .Values.policies.require_labels.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.require_labels.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: require-labels

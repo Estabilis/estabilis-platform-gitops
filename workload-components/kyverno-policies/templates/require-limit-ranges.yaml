@@ -12,7 +12,7 @@ metadata:
       Validates that every namespace has a LimitRange defined.
       LimitRanges are managed by the resource-quotas platform component.
 spec:
-  validationFailureAction: {{ .Values.policies.require_limit_ranges.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.require_limit_ranges.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: check-limitrange-exists

@@ -13,7 +13,7 @@ metadata:
       Adding capabilities such as NET_ADMIN or SYS_ADMIN can be used to escalate
       privileges and break container isolation.
 spec:
-  validationFailureAction: {{ .Values.policies.disallow_adding_capabilities.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.disallow_adding_capabilities.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: adding-capabilities-pods

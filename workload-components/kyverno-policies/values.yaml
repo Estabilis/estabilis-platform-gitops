@@ -31,33 +31,39 @@
 # App namespaces (app-*) never get the exclude label — always validated.
 # ---------------------------------------------------------------------------
 
+# Default validationFailureAction for all policies.
+# Downstream overrides can set this to "Enforce" for production
+# environments (see ADR 0009 §3 — per-environment model).
+# Individual policies can still override via their own .action field.
+defaultAction: "Audit"
+
 policies:
   default_deny_network_policy:
     enabled: true
   deny_ingress_platform_ns:
     enabled: true
-    action: Audit
+    action: ""
   disallow_adding_capabilities:
     enabled: true
-    action: Audit
+    action: ""
   disallow_default_sa:
     enabled: true
-    action: Audit
+    action: ""
   disallow_host_namespaces:
     enabled: true
-    action: Audit
+    action: ""
   disallow_host_path:
     enabled: true
-    action: Audit
+    action: ""
   disallow_host_ports:
     enabled: true
-    action: Audit
+    action: ""
   disallow_privileged_containers:
     enabled: true
-    action: Audit
+    action: ""
   drop_all_capabilities:
     enabled: true
-    action: Audit
+    action: ""
   generate_pdb:
     enabled: true
   inject_pss_labels:
@@ -66,50 +72,52 @@ policies:
     enabled: true
   no_latest_tag:
     enabled: true
-    action: Audit
+    action: ""
   no_privilege_escalation:
     enabled: true
-    action: Audit
+    action: ""
   require_image_digest:
     enabled: true
-    action: Audit
+    action: ""
   require_labels:
     enabled: true
-    action: Audit
+    action: ""
   require_limit_ranges:
     enabled: true
+    action: ""
   require_limits:
     enabled: true
-    action: Audit
+    action: ""
   require_pod_annotations:
     enabled: true
-    action: Audit
+    action: ""
   require_probes:
     enabled: true
-    action: Audit
+    action: ""
   require_resource_quotas:
     enabled: true
+    action: ""
   require_run_as_nonroot:
     enabled: true
-    action: Audit
+    action: ""
   require_seccomp_profile:
     enabled: true
-    action: Audit
+    action: ""
   restrict_automount_sa_token:
     enabled: true
-    action: Audit
+    action: ""
   restrict_volume_types:
     enabled: true
-    action: Audit
+    action: ""
   validate_namespace_name:
     enabled: true
-    action: Audit
+    action: ""
   require_app_namespace_labels:
     enabled: true
-    action: Audit
+    action: ""
   block_client_in_platform_ns:
     enabled: true
-    action: Audit
+    action: ""
   inject_platform_label:
     enabled: true
 customPolicies: {}

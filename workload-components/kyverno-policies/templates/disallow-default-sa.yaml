@@ -13,7 +13,7 @@ metadata:
       ServiceAccount is automatically created in every namespace and may
       have more permissions than intended.
 spec:
-  validationFailureAction: {{ .Values.policies.disallow_default_sa.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.disallow_default_sa.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: default-sa-pods

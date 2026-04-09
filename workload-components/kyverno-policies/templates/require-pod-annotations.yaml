@@ -13,7 +13,7 @@ metadata:
       estabilis.io/owner and estabilis.io/contact annotations for audit
       trail and ownership tracking. Only applies to client application namespaces.
 spec:
-  validationFailureAction: {{ .Values.policies.require_pod_annotations.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.require_pod_annotations.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: require-owner-contact-annotations

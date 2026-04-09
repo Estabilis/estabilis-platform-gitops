@@ -13,7 +13,7 @@ metadata:
       host namespaces allows containers to access host-level resources and
       breaks the isolation boundary.
 spec:
-  validationFailureAction: {{ .Values.policies.disallow_host_namespaces.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.disallow_host_namespaces.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: host-namespaces-pods

@@ -13,7 +13,7 @@ metadata:
       than tag alone. Image digests ensure immutability and prevent supply chain
       attacks where a tag is overwritten with a different image.
 spec:
-  validationFailureAction: {{ .Values.policies.require_image_digest.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.require_image_digest.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: image-digest-pods

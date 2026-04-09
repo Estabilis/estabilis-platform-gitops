@@ -14,7 +14,7 @@ metadata:
       auto-mounted tokens can be exploited in case of container compromise.
       Only applies to client application namespaces.
 spec:
-  validationFailureAction: {{ .Values.policies.restrict_automount_sa_token.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.restrict_automount_sa_token.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: automount-sa-pods

@@ -12,7 +12,7 @@ metadata:
       Namespaces with the app-* prefix (client application namespaces) must
       have the required estabilis.io labels for identification and ownership.
 spec:
-  validationFailureAction: {{ .Values.policies.require_app_namespace_labels.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.require_app_namespace_labels.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: require-app-namespace-labels

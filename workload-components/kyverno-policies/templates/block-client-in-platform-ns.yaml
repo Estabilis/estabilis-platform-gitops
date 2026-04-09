@@ -12,7 +12,7 @@ metadata:
       Prevents workloads with estabilis.io/managed-by=client from being
       deployed in platform namespaces. Client apps must use app-* namespaces.
 spec:
-  validationFailureAction: {{ .Values.policies.block_client_in_platform_ns.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.block_client_in_platform_ns.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: block-client-deployments

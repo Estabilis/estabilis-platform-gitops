@@ -11,7 +11,7 @@ metadata:
     policies.kyverno.io/description: >-
       Requires all container images to have an explicit tag that is not ':latest'.
 spec:
-  validationFailureAction: {{ .Values.policies.no_latest_tag.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.no_latest_tag.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: require-image-tag

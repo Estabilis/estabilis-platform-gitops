@@ -13,7 +13,7 @@ metadata:
       persistentVolumeClaim, downwardAPI, and projected. Other volume types
       such as hostPath or nfs can be used to bypass security controls.
 spec:
-  validationFailureAction: {{ .Values.policies.restrict_volume_types.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.restrict_volume_types.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: restrict-volumes-pods

@@ -13,7 +13,7 @@ metadata:
       alphanumeric characters and hyphens only. This prevents naming
       inconsistencies and avoids issues with DNS-based service discovery.
 spec:
-  validationFailureAction: {{ .Values.policies.validate_namespace_name.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.validate_namespace_name.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: check-namespace-name

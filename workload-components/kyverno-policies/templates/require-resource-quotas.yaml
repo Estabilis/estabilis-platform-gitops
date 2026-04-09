@@ -12,7 +12,7 @@ metadata:
       Validates that every namespace has a ResourceQuota defined.
       Resource quotas are managed by the resource-quotas platform component.
 spec:
-  validationFailureAction: {{ .Values.policies.require_resource_quotas.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.require_resource_quotas.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: check-quota-exists

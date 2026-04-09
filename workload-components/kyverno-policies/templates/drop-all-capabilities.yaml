@@ -13,7 +13,7 @@ metadata:
       Dropping all capabilities and only adding back specific ones follows
       the principle of least privilege.
 spec:
-  validationFailureAction: {{ .Values.policies.drop_all_capabilities.action | default "Audit" }}
+  validationFailureAction: {{ .Values.policies.drop_all_capabilities.action | default .Values.defaultAction | default "Audit" }}
   background: true
   rules:
     - name: drop-all-pods
