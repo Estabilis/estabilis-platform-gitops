@@ -1,0 +1,47 @@
+{{- if .Values.policies.generate_pdb.enabled }}
+# ---------------------------------------------------------------------------
+# Background-controller RBAC extension for `generate-pdb`.
+#
+# The generate-pdb policy uses `background: true` + `generateExisting: true`
+# + `synchronize: true`, so the background-controller needs full CRUD on
+# PodDisruptionBudget resources to create PDBs for existing Deployments and
+# keep them in sync.
+#
+# Without these permissions, the policy installs but Kyverno's policy
+# validation webhook rejects it at apply time:
+#   "system:serviceaccount:kyverno:kyverno-background-controller requires
+#    permissions create,update,delete for resource policy/v1/PodDisruptionBudget"
+#
+# Uses the same aggregation pattern as background-controller-rbac.yaml.
+# ---------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:background-controller:generate-pdb
+  labels:
+    # CRITICAL: these three labels are required for kyverno's ClusterRole
+    # aggregation. Removing them breaks generate-pdb (background-controller
+    # loses PDB create/update/delete perms).
+    app.kubernetes.io/component: background-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    # Branding
+    estabilis.io/component: kyverno-policies
+    app.kubernetes.io/name: kyverno-policies
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+{{- end }}
