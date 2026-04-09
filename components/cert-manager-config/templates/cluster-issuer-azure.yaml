@@ -1,0 +1,22 @@
+{{- if eq .Values.global.provider "azure" }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-production
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: {{ .Values.global.letsencryptEmail | quote }}
+    privateKeySecretRef:
+      name: letsencrypt-production-account-key
+    solvers:
+      - dns01:
+          azureDNS:
+            subscriptionID: {{ .Values.global.subscriptionId | quote }}
+            resourceGroupName: {{ .Values.global.resourceGroup | quote }}
+            hostedZoneName: {{ .Values.global.effectiveDomain | quote }}
+            environment: AzurePublicCloud
+            managedIdentity:
+              clientID: {{ .Values.identity.certManager.clientId | quote }}
+{{- end }}

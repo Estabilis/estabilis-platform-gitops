@@ -1,0 +1,87 @@
+{{- /*
+  cert-manager bootstrap for every workload cluster registered by the
+  estabilis-workload-operator.
+
+  Opt-in toggle: components.cert-manager in workload-bootstrap/values.yaml
+  (flat boolean, mirroring platform-root convention).
+
+  The rendered ApplicationSet uses a clusters generator keyed off
+  .Values.clusterSelector.matchLabels — the same label the operator
+  writes on ArgoCD Cluster Secrets when it registers a workload.
+
+  Multi-source Application:
+    1) Upstream cert-manager chart (pinned version from jetstack).
+    2) This repo as $values — provides the overlay in
+       values/workload/cert-manager.yaml.
+
+  Sync-wave 2 — cert-manager MUST deploy before external-secrets (wave 3)
+  and cert-manager-config (wave 3) because it provides the webhook
+  certificates that other components depend on.
+
+  managedNamespaceMetadata mirrors platform-root.managedNamespaceMetadata
+  and carries distinct platform-version (hub repo) and
+  workload-bootstrap-version (this chart) for full provenance.
+*/ -}}
+{{- if index .Values.components "cert-manager" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workload-cert-manager
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "workload-cert-manager-{{ `{{name}}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "2"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+    spec:
+      project: default
+      sources:
+        # 1) Upstream chart from jetstack
+        - repoURL: "https://charts.jetstack.io"
+          chart: "cert-manager"
+          targetRevision: "1.20.0"
+          helm:
+            releaseName: "cert-manager"
+            valueFiles:
+              - $values/values/workload/cert-manager.yaml
+              {{- include "workload-bootstrap.overrideValueFile" (dict "component" "cert-manager" "root" $) | nindent 14 }}
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "cert-manager" "root" $) | nindent 14 }}
+            ignoreMissingValueFiles: true
+            parameters:
+              - name: global.environment
+                value: {{ .Values.global.environment | quote }}
+              - name: installCRDs
+                value: "true"
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        # 2) This repo as $values — provides the overlay for the upstream chart
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+        # 3) Client override repo (conditional — only when configRepoUrl is set)
+        {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{server}}` }}"
+        namespace: "cert-manager"
+      syncPolicy:
+        {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
+        automated:
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}

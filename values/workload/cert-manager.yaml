@@ -1,0 +1,4 @@
+# Workload overlay for cert-manager
+commonLabels:
+  estabilis.io/managed-by: workload-bootstrap
+  estabilis.io/component: cert-manager

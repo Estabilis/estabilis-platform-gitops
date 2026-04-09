@@ -1,0 +1,5 @@
+apiVersion: v2
+name: cluster-secret-store
+description: ClusterSecretStore for Estabilis Platform
+version: 0.1.0
+type: application

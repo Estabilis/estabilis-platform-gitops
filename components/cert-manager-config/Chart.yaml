@@ -1,0 +1,5 @@
+apiVersion: v2
+name: cert-manager-config
+description: Let's Encrypt ClusterIssuer with DNS-01 via Azure DNS
+version: 0.1.0
+type: application

@@ -1,0 +1,78 @@
+{{- /*
+  cert-manager-config (ClusterIssuers) for every workload cluster.
+
+  Opt-in toggle: components.cert-manager-config (flat boolean, mirrors
+  platform-root convention).
+
+  SINGLE SOURCE OF TRUTH. The chart in components/cert-manager-config is
+  shared by both hub and workload clusters. The
+  values/workload/cert-manager-config.yaml overlay provides any workload-
+  specific overrides.
+
+  Sync-wave 3 — after cert-manager (wave 2) so CRDs are available.
+
+  Multi-source Application:
+    1) This repo directly (path: components/cert-manager-config).
+    2) This repo as $values — provides the base values and the
+       workload overlay from values/workload/cert-manager-config.yaml.
+
+  No managedNamespaceMetadata: the cert-manager namespace is already
+  created by the workload-cert-manager ApplicationSet.
+*/ -}}
+{{- if index .Values.components "cert-manager-config" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workload-cert-manager-config
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "workload-cert-manager-config-{{ `{{name}}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "3"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+    spec:
+      project: default
+      sources:
+        # 1) The chart itself, from this repo
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          path: components/cert-manager-config
+          helm:
+            releaseName: "cert-manager-config"
+            valueFiles:
+              - $values/components/cert-manager-config/values.yaml
+              - $values/values/workload/cert-manager-config.yaml
+              {{- include "workload-bootstrap.overrideValueFile" (dict "component" "cert-manager-config" "root" $) | nindent 14 }}
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "cert-manager-config" "root" $) | nindent 14 }}
+            ignoreMissingValueFiles: true
+            parameters:
+              - name: global.environment
+                value: {{ .Values.global.environment | quote }}
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        # 2) This repo as $values — overlay source
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+        # 3) Client override repo (conditional — only when configRepoUrl is set)
+        {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{server}}` }}"
+        namespace: "cert-manager"
+      syncPolicy:
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+{{- end }}

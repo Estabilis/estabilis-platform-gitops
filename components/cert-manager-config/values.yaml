@@ -1,0 +1,10 @@
+global:
+  provider: ""
+  letsencryptEmail: ""
+  subscriptionId: ""
+  resourceGroup: ""
+  domain: ""
+  effectiveDomain: ""
+identity:
+  certManager:
+    clientId: ""
