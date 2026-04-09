@@ -1,4 +1,5 @@
 # Workload overlay for cert-manager
-commonLabels:
-  estabilis.io/managed-by: workload-bootstrap
-  estabilis.io/component: cert-manager
+# Note: cert-manager upstream chart has strict values schema that does
+# not allow commonLabels at the top level. Labels are set via the
+# platform's values overlay instead.
+installCRDs: true

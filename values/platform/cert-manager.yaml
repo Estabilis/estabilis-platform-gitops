@@ -1,1 +1,3 @@
-# Platform overlay for cert-manager (empty — uses chart defaults)
+# Platform overlay for cert-manager
+# Note: commonLabels is set in core/components/cert-manager/values.yaml
+# (the platform's own values file), not here.
