@@ -79,6 +79,8 @@ spec:
             # Kyverno admission controller mutates ClusterPolicies after
             # apply, injecting default fields not present in our manifests.
             # Without this, every policy shows as OutOfSync permanently.
+            - .spec.admission
+            - .spec.emitWarning
             - .spec.rules[].skipBackgroundRequests
             - .spec.rules[].validate.allowExistingViolations
       syncPolicy:
