@@ -12,7 +12,6 @@
   Multi-source Application:
     1) Upstream Kyverno chart (pinned, OCI-cached).
     2) This repo as $values — provides our overlay in
-       workload-components/kyverno/values.yaml.
 
   managedNamespaceMetadata mirrors platform-root.managedNamespaceMetadata
   and carries distinct platform-version (hub repo) and
@@ -56,7 +55,6 @@ spec:
           helm:
             releaseName: "kyverno"
             valueFiles:
-              - $values/workload-components/kyverno/values.yaml
               - $values/values/workload/kyverno.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "kyverno" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "kyverno" "root" $) | nindent 14 }}

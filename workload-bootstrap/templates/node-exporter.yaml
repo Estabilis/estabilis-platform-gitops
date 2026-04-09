@@ -46,7 +46,6 @@ spec:
           helm:
             releaseName: "node-exporter"
             valueFiles:
-              - $values/workload-components/node-exporter/values.yaml
               - $values/values/workload/node-exporter.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "node-exporter" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "node-exporter" "root" $) | nindent 14 }}

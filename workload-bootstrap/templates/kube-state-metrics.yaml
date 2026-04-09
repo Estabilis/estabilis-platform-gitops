@@ -46,7 +46,6 @@ spec:
           helm:
             releaseName: "kube-state-metrics"
             valueFiles:
-              - $values/workload-components/kube-state-metrics/values.yaml
               - $values/values/workload/kube-state-metrics.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "kube-state-metrics" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "kube-state-metrics" "root" $) | nindent 14 }}
