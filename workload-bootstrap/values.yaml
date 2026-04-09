@@ -68,6 +68,8 @@ components:
   kyverno: true              # core: admission/background/cleanup/reports controllers
   kyverno-policies: true     # core: ClusterPolicies (29 baseline rules, all Audit mode)
   kyverno-exceptions: true   # core: PolicyException CRDs + namespace labels
+  network-policies: true     # core: namespace isolation (deny-all + allow rules)
+  resource-quotas: true      # core: prevent namespace resource starvation
 
   # --- observability ---
   kube-state-metrics: true   # observability: Kubernetes object metrics (Deployment, Pod, Node state)

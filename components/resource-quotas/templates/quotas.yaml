@@ -1,0 +1,18 @@
+{{- range $ns, $quota := .Values.namespaces }}
+{{- if $quota.enabled }}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: platform-quota-{{ $ns }}
+  namespace: {{ $ns }}
+  {{- include "estabilis.metadata" $ | nindent 2 }}
+spec:
+  hard:
+    {{- if $quota.hard }}
+    {{- toYaml $quota.hard | nindent 4 }}
+    {{- else }}
+    {{- toYaml $.Values.defaults.hard | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- end }}

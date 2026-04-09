@@ -1,0 +1,65 @@
+# Network policy allow rules per namespace
+# Override via downstream overrides/network-policies/values.yaml
+#
+# Every namespace has a deny-all NetworkPolicy from Kyverno.
+# This component creates allow rules for legitimate traffic.
+# All pods need DNS egress (port 53 to kube-dns).
+
+policies:
+  grafana:
+    enabled: true
+  argocd:
+    enabled: true
+  cert-manager:
+    enabled: true
+  external-secrets:
+    enabled: true
+  external-dns:
+    enabled: true
+  cnpg-system:
+    enabled: true
+  kyverno:
+    enabled: true
+  traefik:
+    enabled: true
+  velero:
+    enabled: true
+  opencost:
+    enabled: true
+  trivy-system:
+    enabled: true
+  kube-state-metrics:
+    enabled: true
+  node-exporter:
+    enabled: true
+  policy-reporter:
+    enabled: true
+
+# Downstream escape hatch — additive NetworkPolicies declared by the client.
+#
+# Built-in policies above are static and curated by the platform. When a
+# client needs extra permissions (a custom app namespace, an extra ingress
+# port, an egress to a specific CIDR), declare them here instead of forking
+# the platform repo.
+#
+# NetworkPolicies are additive in Kubernetes (multiple policies in the same
+# namespace are OR'd), so adding permissions = adding a policy. Removing a
+# permission from a built-in requires an upstream change.
+#
+# Each entry must provide `name`, `namespace`, and `spec` (a full
+# NetworkPolicy spec). The standard platform labels are added automatically.
+#
+# Example (downstream override):
+#
+#   extraPolicies:
+#     - name: allow-app-foo-from-traefik
+#       namespace: app-foo
+#       spec:
+#         podSelector: {}
+#         policyTypes: [Ingress]
+#         ingress:
+#           - from:
+#               - namespaceSelector:
+#                   matchLabels:
+#                     kubernetes.io/metadata.name: traefik
+extraPolicies: []

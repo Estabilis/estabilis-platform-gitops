@@ -1,0 +1,5 @@
+# Workload overlay for network-policies
+# Workload clusters have different namespaces than the platform hub.
+# The base chart's policies.yaml template uses per-namespace toggles
+# from values.yaml — the workload overlay can disable platform-only
+# namespaces and enable workload-specific ones.

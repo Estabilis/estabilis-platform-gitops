@@ -1,0 +1,36 @@
+{{- /*
+Additive NetworkPolicies declared by the downstream client.
+
+See values.yaml `extraPolicies` for the schema and rationale. Each entry
+must provide `name`, `namespace`, and `spec`. Platform labels are injected
+automatically; downstream-supplied labels are merged on top.
+*/ -}}
+{{- range $idx, $policy := .Values.extraPolicies }}
+{{- if not $policy.name }}
+{{- fail (printf "extraPolicies[%d]: 'name' is required" $idx) }}
+{{- end }}
+{{- if not $policy.namespace }}
+{{- fail (printf "extraPolicies[%d] (%s): 'namespace' is required" $idx $policy.name) }}
+{{- end }}
+{{- if not $policy.spec }}
+{{- fail (printf "extraPolicies[%d] (%s): 'spec' is required" $idx $policy.name) }}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $policy.name }}
+  namespace: {{ $policy.namespace }}
+  labels:
+    {{- include "estabilis.labels" $ | nindent 4 }}
+    {{- with $policy.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- include "estabilis.annotations" $ | nindent 4 }}
+    {{- with $policy.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- toYaml $policy.spec | nindent 2 }}
+{{- end }}

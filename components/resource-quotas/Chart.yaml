@@ -1,0 +1,5 @@
+apiVersion: v2
+name: resource-quotas
+description: Platform namespace resource quotas
+type: application
+version: 0.1.0

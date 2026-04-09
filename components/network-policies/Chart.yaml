@@ -1,0 +1,5 @@
+apiVersion: v2
+name: network-policies
+description: Platform network policy allow rules per namespace
+type: application
+version: 0.1.0

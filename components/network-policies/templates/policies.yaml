@@ -1,0 +1,416 @@
+# =============================================================================
+# grafana namespace
+# Components: grafana, loki, mimir, tempo, alloy
+# =============================================================================
+{{- if .Values.policies.grafana.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana
+  namespace: grafana
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from traefik (ingress controller)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+    # Allow internal comms (loki/mimir/tempo/alloy/grafana)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: grafana
+    # Allow from all namespaces (alloy receives metrics from all pods)
+    - from:
+        - namespaceSelector: {}
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # PostgreSQL to cnpg-system
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Azure storage private endpoints (HTTPS)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+    # Alloy needs egress to ALL namespaces for log collection
+    - to:
+        - namespaceSelector: {}
+{{- end }}
+---
+# =============================================================================
+# argocd namespace
+# Needs broad egress: github, chart registries, kubernetes API
+# =============================================================================
+{{- if .Values.policies.argocd.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-argocd
+  namespace: argocd
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (github, chart registries, kubernetes API)
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# cert-manager namespace
+# Needs broad egress: Let's Encrypt ACME, Azure DNS API
+# Ingress: webhook from API server
+# =============================================================================
+{{- if (index .Values.policies "cert-manager").enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cert-manager
+  namespace: cert-manager
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Webhook callbacks from API server (validating/mutating admission)
+    - ports:
+        - protocol: TCP
+          port: 10250
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (Let's Encrypt ACME, Azure DNS API)
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# external-secrets namespace
+# Needs broad egress: Azure Key Vault
+# Ingress: webhook from API server, metrics scraping from grafana
+# =============================================================================
+{{- if (index .Values.policies "external-secrets").enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-secrets
+  namespace: external-secrets
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Webhook callbacks from API server (validating admission)
+    - ports:
+        - protocol: TCP
+          port: 10250
+    # Metrics scraping from grafana namespace (Alloy)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: grafana
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (Azure Key Vault)
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# external-dns namespace
+# Needs broad egress: Azure DNS API
+# =============================================================================
+{{- if (index .Values.policies "external-dns").enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-dns
+  namespace: external-dns
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (Azure DNS API)
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# cnpg-system namespace
+# Needs broad egress: Azure Blob for WAL backup
+# Ingress: webhook, operator status, replication, postgres clients
+# =============================================================================
+{{- if (index .Values.policies "cnpg-system").enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cnpg-system
+  namespace: cnpg-system
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Webhook callbacks from API server (mutating/validating admission)
+    - ports:
+        - protocol: TCP
+          port: 9443
+    # Intra-namespace: operator → postgres status API (8000),
+    # replication between primary and replicas (5432)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+    # PostgreSQL clients from grafana namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: grafana
+      ports:
+        - protocol: TCP
+          port: 5432
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (Azure Blob for WAL backup)
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# kyverno namespace
+# Needs broad egress: kubernetes API for webhooks
+# Ingress: all (webhook callbacks from API server)
+# =============================================================================
+{{- if .Values.policies.kyverno.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kyverno
+  namespace: kyverno
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # All ingress (webhook callbacks from API server, source IP unpredictable)
+    - from: []
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (kubernetes API for webhooks)
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# traefik namespace
+# Egress: DNS, grafana namespace (backend routing)
+# Ingress: all (Azure Load Balancer, external traffic)
+# =============================================================================
+{{- if .Values.policies.traefik.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik
+  namespace: traefik
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # All ingress (Azure Load Balancer, external traffic)
+    - from: []
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # Traefik is an ingress controller and needs broad egress:
+    # - Kubernetes API server (watches IngressRoute/Ingress/Middleware
+    #   CRDs, reads pod metadata for the OTel tracer)
+    # - Any backend service in any namespace (routing — the whole
+    #   point of an ingress controller)
+    # - External endpoints (ACME TLS-ALPN challenges, upstream
+    #   services behind an IngressRoute)
+    #
+    # Before this was added the policy only allowed DNS + the grafana
+    # namespace. On clusters with a NetworkPolicy-enforcing CNI
+    # (e.g. Cilium via ACNS), Traefik could not reach the Kubernetes
+    # API server and every informer timed out with
+    # "timed out waiting for controller caches to sync *v1.Ingress".
+    # Matches the `allow-velero`/`allow-opencost` pattern below.
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# velero namespace
+# Needs broad egress: Azure Blob, kubernetes API
+# =============================================================================
+{{- if .Values.policies.velero.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-velero
+  namespace: velero
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (Azure Blob, kubernetes API)
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# opencost namespace
+# Needs broad egress: Azure API, grafana for metrics push
+# =============================================================================
+{{- if .Values.policies.opencost.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-opencost
+  namespace: opencost
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (Azure API, grafana for metrics push)
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# trivy-system namespace
+# Needs broad egress: container registries for scanning
+# Ingress: scan jobs connect to trivy-server (port 4954) in same namespace
+# =============================================================================
+{{- if (index .Values.policies "trivy-system").enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-trivy-system
+  namespace: trivy-system
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Internal: scan jobs → trivy-server (server mode)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: trivy-system
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (container registries, trivy-db download)
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# kube-state-metrics namespace
+# Needs broad egress: kubernetes API
+# Ingress: alloy scraping from grafana namespace
+# =============================================================================
+{{- if (index .Values.policies "kube-state-metrics").enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kube-state-metrics
+  namespace: kube-state-metrics
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Alloy scraping metrics from grafana namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: grafana
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (kubernetes API)
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# node-exporter namespace
+# Egress: DNS only
+# Ingress: alloy scraping from grafana namespace
+# =============================================================================
+{{- if (index .Values.policies "node-exporter").enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-node-exporter
+  namespace: node-exporter
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Alloy scraping metrics from grafana namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: grafana
+  egress:
+{{ include "network-policies.dns-egress" . }}
+{{- end }}
+---
+# =============================================================================
+# policy-reporter namespace
+# Kyverno sub-component: reads policy results, exposes metrics
+# Ingress: grafana namespace (Alloy metrics scraping)
+# Egress: DNS + kubernetes API
+# =============================================================================
+{{- if (index .Values.policies "policy-reporter").enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-policy-reporter
+  namespace: policy-reporter
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Alloy scraping metrics from grafana namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: grafana
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # Kubernetes API (read policy results)
+    - to: []
+{{- end }}

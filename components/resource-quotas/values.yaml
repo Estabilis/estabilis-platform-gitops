@@ -1,0 +1,147 @@
+# Resource quotas and limit ranges per namespace
+# Override via downstream overrides/resource-quotas/values.yaml
+#
+# Downstream can add custom namespaces. If 'hard' or 'limitRange' is omitted, defaults are used.
+# Example:
+#   namespaces:
+#     my-app:
+#       enabled: true
+#       # uses defaults below for both quota and limitRange
+
+defaults:
+  hard:
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    pods: "20"
+    persistentvolumeclaims: "5"
+  limitRange:
+    default:
+      cpu: 100m
+      memory: 128Mi
+    defaultRequest:
+      cpu: 10m
+      memory: 32Mi
+    max:
+      cpu: "4"
+      memory: 8Gi
+
+namespaces:
+  grafana:
+    enabled: true
+    hard:
+      requests.cpu: "4"
+      requests.memory: 8Gi
+      limits.cpu: "16"
+      limits.memory: 32Gi
+      pods: "60"
+      persistentvolumeclaims: "20"
+  argocd:
+    enabled: true
+    hard:
+      requests.cpu: "4"
+      requests.memory: 8Gi
+      limits.cpu: "16"
+      limits.memory: 16Gi
+      pods: "30"
+      persistentvolumeclaims: "5"
+  kyverno:
+    enabled: true
+    hard:
+      requests.cpu: "1"
+      requests.memory: 2Gi
+      limits.cpu: "4"
+      limits.memory: 8Gi
+      pods: "20"
+      persistentvolumeclaims: "5"
+  cert-manager:
+    enabled: true
+    hard:
+      requests.cpu: "1"
+      requests.memory: 2Gi
+      limits.cpu: "4"
+      limits.memory: 4Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
+  trivy-system:
+    enabled: true
+    hard:
+      requests.cpu: "2"
+      requests.memory: 4Gi
+      limits.cpu: "8"
+      limits.memory: 8Gi
+      pods: "20"
+      persistentvolumeclaims: "5"
+  external-secrets:
+    enabled: true
+    hard:
+      requests.cpu: "1"
+      requests.memory: 2Gi
+      limits.cpu: "4"
+      limits.memory: 4Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
+  cnpg-system:
+    enabled: true
+    hard:
+      requests.cpu: "2"
+      requests.memory: 4Gi
+      limits.cpu: "8"
+      limits.memory: 8Gi
+      pods: "10"
+      persistentvolumeclaims: "10"
+  traefik:
+    enabled: true
+    hard:
+      requests.cpu: "1"
+      requests.memory: 1Gi
+      limits.cpu: "4"
+      limits.memory: 4Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
+  opencost:
+    enabled: true
+    hard:
+      requests.cpu: "1"
+      requests.memory: 2Gi
+      limits.cpu: "4"
+      limits.memory: 4Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
+  velero:
+    enabled: true
+    hard:
+      requests.cpu: "1"
+      requests.memory: 1Gi
+      limits.cpu: "2"
+      limits.memory: 2Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
+  external-dns:
+    enabled: true
+    hard:
+      requests.cpu: "500m"
+      requests.memory: 1Gi
+      limits.cpu: "2"
+      limits.memory: 2Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
+  node-exporter:
+    enabled: true
+    hard:
+      requests.cpu: "500m"
+      requests.memory: 512Mi
+      limits.cpu: "2"
+      limits.memory: 1Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
+  kube-state-metrics:
+    enabled: true
+    hard:
+      requests.cpu: "500m"
+      requests.memory: 512Mi
+      limits.cpu: "2"
+      limits.memory: 1Gi
+      pods: "10"
+      persistentvolumeclaims: "5"

@@ -1,0 +1,81 @@
+{{- /*
+  Network policies for every workload cluster.
+
+  Opt-in toggle: components.network-policies (flat boolean, mirrors
+  platform-root convention).
+
+  SINGLE SOURCE OF TRUTH. The chart in components/network-policies is
+  shared by both hub and workload clusters (ADR 0002 Phase 2). The
+  values/workload/network-policies.yaml overlay provides any workload-
+  specific overrides (e.g. disabling platform-only namespaces).
+
+  The rendered ApplicationSet uses a clusters generator keyed off
+  .Values.clusterSelector.matchLabels — the same label the operator
+  writes on ArgoCD Cluster Secrets when it registers a workload.
+
+  Multi-source Application:
+    1) This repo directly (path: components/network-policies).
+    2) This repo as $values — provides the base values and the
+       workload overlay from values/workload/network-policies.yaml.
+
+  Destination namespace is "default" — NetworkPolicies are namespace-
+  scoped but the chart creates them across multiple namespaces via
+  metadata.namespace in each resource.
+*/ -}}
+{{- if ne (index .Values.components "network-policies") false }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workload-network-policies
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "workload-network-policies-{{ `{{name}}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "10"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+    spec:
+      project: default
+      sources:
+        # 1) The chart itself, from this repo
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          path: components/network-policies
+          helm:
+            releaseName: "network-policies"
+            valueFiles:
+              - $values/components/network-policies/values.yaml
+              - $values/values/workload/network-policies.yaml
+              {{- include "workload-bootstrap.overrideValueFile" (dict "component" "network-policies" "root" $) | nindent 14 }}
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "network-policies" "root" $) | nindent 14 }}
+            ignoreMissingValueFiles: true
+            parameters:
+              - name: global.environment
+                value: {{ .Values.global.environment | quote }}
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        # 2) This repo as $values — overlay source
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+        # 3) Client override repo (conditional — only when configRepoUrl is set)
+        {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{server}}` }}"
+        namespace: "default"
+      syncPolicy:
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+{{- end }}

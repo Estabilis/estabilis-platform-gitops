@@ -1,0 +1,29 @@
+{{- range $ns, $quota := .Values.namespaces }}
+{{- if $quota.enabled }}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: platform-limits-{{ $ns }}
+  namespace: {{ $ns }}
+  {{- include "estabilis.metadata" $ | nindent 2 }}
+spec:
+  limits:
+    - type: Container
+      {{- if $quota.limitRange }}
+      default:
+        {{- toYaml $quota.limitRange.default | nindent 8 }}
+      defaultRequest:
+        {{- toYaml $quota.limitRange.defaultRequest | nindent 8 }}
+      max:
+        {{- toYaml $quota.limitRange.max | nindent 8 }}
+      {{- else }}
+      default:
+        {{- toYaml $.Values.defaults.limitRange.default | nindent 8 }}
+      defaultRequest:
+        {{- toYaml $.Values.defaults.limitRange.defaultRequest | nindent 8 }}
+      max:
+        {{- toYaml $.Values.defaults.limitRange.max | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}
