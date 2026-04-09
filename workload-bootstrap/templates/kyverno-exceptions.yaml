@@ -4,9 +4,10 @@
   Opt-in toggle: components.kyverno-exceptions (flat boolean, mirrors
   platform-root convention).
 
-  LOCKSTEP WITH THE HUB. The workload-components/kyverno-exceptions chart
-  is a verbatim copy of estabilis-platform/core/components/kyverno-exceptions.
-  Both MUST bump together.
+  SINGLE SOURCE OF TRUTH. The chart in components/kyverno-exceptions is
+  shared by both hub and workload clusters (ADR 0002 Phase 3). The
+  values/workload/kyverno-exceptions.yaml overlay provides any workload-
+  specific overrides.
 
   Used to:
     - Label pre-existing namespaces (e.g. kube-system) with
@@ -41,11 +42,12 @@ spec:
       sources:
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}
-          path: workload-components/kyverno-exceptions
+          path: components/kyverno-exceptions
           helm:
             releaseName: "kyverno-exceptions"
             valueFiles:
-              - $values/workload-components/kyverno-exceptions/values.yaml
+              - $values/components/kyverno-exceptions/values.yaml
+              - $values/values/workload/kyverno-exceptions.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "kyverno-exceptions" "root" $) | nindent 14 }}
             {{- include "workload-bootstrap.ignoreMissingValueFiles" $ | nindent 12 }}
             parameters:

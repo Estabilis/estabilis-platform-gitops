@@ -1,0 +1,4 @@
+# Workload overlay — Kyverno upstream chart values for workload clusters
+commonLabels:
+  estabilis.io/managed-by: workload-bootstrap
+  estabilis.io/component: kyverno

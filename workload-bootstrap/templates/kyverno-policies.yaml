@@ -4,19 +4,19 @@
   Opt-in toggle: components.kyverno-policies (flat boolean, mirrors
   platform-root convention).
 
-  LOCKSTEP WITH THE HUB. The workload-components/kyverno-policies chart
-  is a verbatim copy of estabilis-platform/core/components/kyverno-policies.
-  Both MUST bump together — any new policy or excluded namespace added
-  on the hub should be mirrored here in the same PR.
+  SINGLE SOURCE OF TRUTH. The chart in components/kyverno-policies is
+  shared by both hub and workload clusters (ADR 0002 Phase 3). The
+  values/workload/kyverno-policies.yaml overlay provides any workload-
+  specific overrides.
 
   The rendered ApplicationSet uses a clusters generator keyed off
   .Values.clusterSelector.matchLabels — the same label the operator
   writes on ArgoCD Cluster Secrets when it registers a workload.
 
   Multi-source Application:
-    1) This repo directly (path: workload-components/kyverno-policies).
-    2) This repo as $values — provides the values overlay from
-       workload-components/kyverno-policies/values.yaml.
+    1) This repo directly (path: components/kyverno-policies).
+    2) This repo as $values — provides the base values and the
+       workload overlay from values/workload/kyverno-policies.yaml.
 
   No managedNamespaceMetadata: the kyverno namespace is already created
   by the workload-kyverno ApplicationSet. Mirrors hub kyverno-policies
@@ -49,11 +49,12 @@ spec:
         # 1) The chart itself, from this repo
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}
-          path: workload-components/kyverno-policies
+          path: components/kyverno-policies
           helm:
             releaseName: "kyverno-policies"
             valueFiles:
-              - $values/workload-components/kyverno-policies/values.yaml
+              - $values/components/kyverno-policies/values.yaml
+              - $values/values/workload/kyverno-policies.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "kyverno-policies" "root" $) | nindent 14 }}
             {{- include "workload-bootstrap.ignoreMissingValueFiles" $ | nindent 12 }}
             parameters:
