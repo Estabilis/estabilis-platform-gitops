@@ -4,14 +4,24 @@ commonLabels:
   estabilis.io/component: kyverno
 
 # Webhook hardening for batch policy deployment.
-# Fresh workload clusters deploy 30 ClusterPolicies at once — the
-# policy-validation webhook with default 10s timeout cannot validate the
-# batch, causing perpetual SyncFailed with context deadline exceeded.
+# Fresh workload clusters deploy 30 ClusterPolicies at once. The
+# policy-validation webhook processes requests sequentially per pod.
+# With 1 replica and ~2s per policy, 30 policies = 60s > 30s max timeout.
 #
-# forceFailurePolicyIgnore: all webhooks use Ignore instead of Fail.
-# When the webhook times out, the request proceeds (policy still validated
-# asynchronously by the background-controller). This prevents webhook
-# failures from blocking ArgoCD sync operations.
+# forceFailurePolicyIgnore: resource-validation webhooks use Ignore
+# instead of Fail (policy-validation stays Fail by design).
 features:
   forceFailurePolicyIgnore:
     enabled: true
+
+# Scale admission controller to 3 replicas — distributes webhook
+# validation across pods, reducing per-pod queue depth from 30 to ~10.
+admissionController:
+  replicas: 3
+  container:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
