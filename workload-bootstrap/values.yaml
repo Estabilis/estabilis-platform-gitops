@@ -14,7 +14,7 @@
 # should pin to when reading $values. Kept in sync with the hub Application's
 # targetRevision so $values always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.9.2
+repoVersion: v0.10.0
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
@@ -37,11 +37,12 @@ platformVersion: unknown
 # ---------------------------------------------------------------------------
 global:
   environment: ""
-  # Azure-specific values for workload components that need cloud identity.
-  # Passed by the hub as helm parameters from the downstream override.
-  keyVaultUri: ""               # Key Vault URL for ClusterSecretStore
-  tenantId: ""                  # Azure AD tenant ID for workload identity
-  externalSecretsClientId: ""   # MI client ID for external-secrets SA annotation
+  # Azure identity values (tenantId, keyVaultUri, externalSecretsClientId)
+  # are NO LONGER passed as helm parameters. They are read directly from
+  # ArgoCD Cluster Secret annotations via the ApplicationSet cluster
+  # generator's {{metadata.annotations.xxx}} syntax. The workload Terraform
+  # writes these annotations to the Cluster Secret on the hub. See:
+  # estabilis-workload/providers/azure/cluster-annotations.tf
   provenance:
     gitRevision: ""
     gitSource: ""
