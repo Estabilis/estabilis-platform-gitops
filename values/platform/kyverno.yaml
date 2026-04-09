@@ -3,11 +3,120 @@ commonLabels:
   estabilis.io/managed-by: platform
   estabilis.io/component: kyverno
 
-# Webhook hardening for batch policy deployment.
-# forceFailurePolicyIgnore: all webhooks use Ignore instead of Fail.
-# When the webhook times out, the request proceeds (policy still validated
-# asynchronously by the background-controller). Prevents webhook failures
-# from blocking ArgoCD sync operations.
+# Namespace exclusion — namespaces with kyverno.io/exclude=true are
+# completely ignored by Kyverno (no admission, validation, or mutation).
+config:
+  webhooks:
+    namespaceSelector:
+      matchExpressions:
+        - key: kyverno.io/exclude
+          operator: DoesNotExist
+
+# Webhook hardening — forceFailurePolicyIgnore makes resource-validation
+# webhooks use Ignore instead of Fail. Prevents webhook timeouts from
+# blocking ArgoCD sync operations during batch policy deployment.
 features:
   forceFailurePolicyIgnore:
     enabled: true
+
+admissionController:
+  replicas: 1
+  container:
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      capabilities:
+        drop: [ALL]
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+  metricsService:
+    create: true
+
+backgroundController:
+  enabled: true
+  backgroundScanInterval: 5m
+  container:
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      capabilities:
+        drop: [ALL]
+      seccompProfile:
+        type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+  metricsService:
+    create: true
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups: ["policy"]
+          resources: ["poddisruptionbudgets"]
+          verbs: ["create", "update", "delete", "get", "list"]
+        - apiGroups: ["networking.k8s.io"]
+          resources: ["networkpolicies"]
+          verbs: ["create", "update", "delete", "get", "list"]
+        - apiGroups: [""]
+          resources: ["resourcequotas", "limitranges"]
+          verbs: ["create", "update", "delete", "get", "list"]
+
+cleanupController:
+  enabled: true
+  container:
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      capabilities:
+        drop: [ALL]
+      seccompProfile:
+        type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 128Mi
+  metricsService:
+    create: true
+
+reportsController:
+  enabled: true
+  container:
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      capabilities:
+        drop: [ALL]
+      seccompProfile:
+        type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+  metricsService:
+    create: true
+
+# Disable pre-delete hooks — they fail on clean installs because they
+# reference the admission-controller ServiceAccount before the chart
+# creates it. Webhook cleanup is handled by the resync nuke phase.
+webhooksCleanup:
+  enabled: false
+
+grafana:
+  enabled: false

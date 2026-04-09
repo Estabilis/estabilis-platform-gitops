@@ -1,3 +1,81 @@
-# Platform overlay for cert-manager
-# Note: commonLabels is set in core/components/cert-manager/values.yaml
-# (the platform's own values file), not here.
+# Platform overlay — cert-manager upstream chart values for the hub cluster
+# Note: commonLabels uses global.commonLabels (cert-manager chart quirk)
+global:
+  commonLabels:
+    estabilis.io/managed-by: platform
+    estabilis.io/component: cert-manager
+
+installCRDs: true
+
+replicaCount: 1
+
+serviceAccount:
+  create: true
+
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: false
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  capabilities:
+    drop: [ALL]
+  seccompProfile:
+    type: RuntimeDefault
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 512Mi
+
+webhook:
+  replicaCount: 1
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+cainjector:
+  replicaCount: 1
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+startupapicheck:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault

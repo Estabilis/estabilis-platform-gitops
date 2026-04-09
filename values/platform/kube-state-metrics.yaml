@@ -2,3 +2,41 @@
 commonLabels:
   estabilis.io/managed-by: platform
   estabilis.io/component: kube-state-metrics
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  capabilities:
+    drop: [ALL]
+  seccompProfile:
+    type: RuntimeDefault
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+tolerations:
+  - key: "estabilis.io/workload-type"
+    operator: "Equal"
+    value: "platform"
+    effect: "NoSchedule"
+
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: "estabilis.io/pool-type"
+              operator: In
+              values: ["spot"]
+      - weight: 10
+        preference:
+          matchExpressions:
+            - key: "estabilis.io/pool-type"
+              operator: In
+              values: ["regular"]

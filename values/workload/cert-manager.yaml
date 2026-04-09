@@ -1,5 +1,81 @@
-# Workload overlay for cert-manager
-# Note: cert-manager upstream chart has strict values schema that does
-# not allow commonLabels at the top level. Labels are set via the
-# platform's values overlay instead.
+# Workload overlay — cert-manager upstream chart values for workload clusters
+# Note: commonLabels uses global.commonLabels (cert-manager chart quirk)
+global:
+  commonLabels:
+    estabilis.io/managed-by: workload-bootstrap
+    estabilis.io/component: cert-manager
+
 installCRDs: true
+
+replicaCount: 1
+
+serviceAccount:
+  create: true
+
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: false
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  capabilities:
+    drop: [ALL]
+  seccompProfile:
+    type: RuntimeDefault
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 512Mi
+
+webhook:
+  replicaCount: 1
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+cainjector:
+  replicaCount: 1
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+startupapicheck:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault

@@ -2,3 +2,19 @@
 commonLabels:
   estabilis.io/managed-by: workload-bootstrap
   estabilis.io/component: kube-state-metrics
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  capabilities:
+    drop: [ALL]
+  seccompProfile:
+    type: RuntimeDefault
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
