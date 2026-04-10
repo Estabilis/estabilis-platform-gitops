@@ -42,7 +42,7 @@ spec:
       source:
         repoURL: {{ .Values.clientGitopsRepoUrl | quote }}
         targetRevision: {{ .Values.clientGitopsRepoVersion | default "HEAD" | quote }}
-        path: policies/exceptions
+        path: "platforms/{{ .Values.deploymentId }}/policies/exceptions"
         directory:
           recurse: true
       destination:
