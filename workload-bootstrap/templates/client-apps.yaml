@@ -61,7 +61,10 @@ spec:
           directory:
             recurse: false
       destination:
-        server: "{{`{{.server}}`}}"
+        # Applications must be created on the HUB (where ArgoCD runs),
+        # not on the workload cluster. The Application itself targets
+        # the workload cluster via its own destination.name/server.
+        server: https://kubernetes.default.svc
         namespace: argocd
       syncPolicy:
         automated:
