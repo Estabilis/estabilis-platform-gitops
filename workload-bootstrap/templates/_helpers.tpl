@@ -162,6 +162,6 @@ Client GitOps override helpers (ADR 0008 Tier 3).
 
 {{- define "workload-bootstrap.gitopsValueFile" -}}
 {{- if and .root.Values.clientGitopsRepoUrl .root.Values.deploymentId }}
-- $gitops/platforms/{{ .root.Values.deploymentId }}/overrides/{{ .component }}/values.yaml
+- $gitops/platforms/{{ .root.Values.deploymentId }}/workload-overrides/{{ .component }}/values.yaml
 {{- end }}
 {{- end -}}
