@@ -27,7 +27,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: workload-cert-manager
+  name: cert-manager
   namespace: argocd
 spec:
   generators:
@@ -37,7 +37,7 @@ spec:
             {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
   template:
     metadata:
-      name: "workload-cert-manager-{{ `{{name}}` }}"
+      name: "cert-manager-{{ `{{name}}` }}"
       annotations:
         argocd.argoproj.io/sync-wave: "2"
       labels:

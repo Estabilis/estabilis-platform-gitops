@@ -23,7 +23,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: workload-client-apps
+  name: client-apps
   namespace: argocd
 spec:
   goTemplate: true
@@ -42,7 +42,7 @@ spec:
                 - path: "platforms/{{ .Values.deploymentId }}/apps/*"
   template:
     metadata:
-      name: "client-{{`{{.path.basename}}`}}-{{`{{.name}}`}}"
+      name: "{{`{{.path.basename}}`}}-{{`{{.name}}`}}"
       annotations:
         argocd.argoproj.io/sync-wave: "10"
       labels:

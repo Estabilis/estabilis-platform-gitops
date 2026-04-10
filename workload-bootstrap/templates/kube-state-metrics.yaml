@@ -21,7 +21,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: workload-kube-state-metrics
+  name: kube-state-metrics
   namespace: argocd
 spec:
   generators:
@@ -31,7 +31,7 @@ spec:
             {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
   template:
     metadata:
-      name: "workload-kube-state-metrics-{{ `{{name}}` }}"
+      name: "kube-state-metrics-{{ `{{name}}` }}"
       annotations:
         argocd.argoproj.io/sync-wave: "8"
       labels:

@@ -22,7 +22,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: workload-kyverno
+  name: kyverno
   namespace: argocd
 spec:
   # Re-render on generator changes + cluster label changes
@@ -33,7 +33,7 @@ spec:
             {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
   template:
     metadata:
-      name: "workload-kyverno-{{ `{{name}}` }}"
+      name: "kyverno-{{ `{{name}}` }}"
       annotations:
         # Sync-wave 2 — engine comes up before policies (wave 3) and
         # exceptions (wave 4). Mirrors platform-root sync-wave convention.

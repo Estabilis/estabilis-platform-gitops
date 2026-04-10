@@ -27,7 +27,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: workload-resource-quotas
+  name: resource-quotas
   namespace: argocd
 spec:
   generators:
@@ -37,7 +37,7 @@ spec:
             {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
   template:
     metadata:
-      name: "workload-resource-quotas-{{ `{{name}}` }}"
+      name: "resource-quotas-{{ `{{name}}` }}"
       annotations:
         argocd.argoproj.io/sync-wave: "10"
       labels:

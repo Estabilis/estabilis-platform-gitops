@@ -22,7 +22,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: workload-client-kyverno-exceptions
+  name: client-kyverno-exceptions
   namespace: argocd
 spec:
   generators:
@@ -32,7 +32,7 @@ spec:
             {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
   template:
     metadata:
-      name: "workload-client-exceptions-{{ `{{name}}` }}"
+      name: "kyverno-exceptions-client-{{ `{{name}}` }}"
       annotations:
         argocd.argoproj.io/sync-wave: "5"
       labels:
