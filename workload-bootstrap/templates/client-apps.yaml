@@ -50,7 +50,7 @@ spec:
         estabilis.io/managed-by: client-gitops
         estabilis.io/component: "{{`{{.path.basename}}`}}"
     spec:
-      project: default
+      project: client-infra
       sources:
         # 1) The client's app directory — contains application.yaml
         #    which ArgoCD applies as raw manifest (the Application itself

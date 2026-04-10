@@ -46,7 +46,7 @@ spec:
         # mirroring platform-root convention.
         estabilis.io/workload-cluster: "{{ `{{name}}` }}"
     spec:
-      project: default
+      project: workload-baseline
       sources:
         # 1) Upstream chart, pulled from OCI (content-addressed, cacheable)
         - repoURL: "https://kyverno.github.io/kyverno"

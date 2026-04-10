@@ -38,7 +38,7 @@ spec:
       labels:
         estabilis.io/workload-cluster: "{{ `{{name}}` }}"
     spec:
-      project: default
+      project: workload-baseline
       source:
         repoURL: {{ .Values.clientGitopsRepoUrl | quote }}
         targetRevision: {{ .Values.clientGitopsRepoVersion | default "HEAD" | quote }}

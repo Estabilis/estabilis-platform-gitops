@@ -37,7 +37,7 @@ spec:
       labels:
         estabilis.io/workload-cluster: "{{ `{{name}}` }}"
     spec:
-      project: default
+      project: workload-baseline
       sources:
         # 1) Upstream chart from prometheus-community
         - repoURL: "https://prometheus-community.github.io/helm-charts"

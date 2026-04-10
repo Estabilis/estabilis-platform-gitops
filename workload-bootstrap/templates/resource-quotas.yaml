@@ -43,7 +43,7 @@ spec:
       labels:
         estabilis.io/workload-cluster: "{{ `{{name}}` }}"
     spec:
-      project: default
+      project: workload-baseline
       sources:
         # 1) The chart itself, from this repo
         - repoURL: {{ .Values.repoURL | quote }}
