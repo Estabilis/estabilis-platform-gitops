@@ -83,6 +83,12 @@ spec:
       destination:
         server: "{{ `{{server}}` }}"
         namespace: "default"
+      ignoreDifferences:
+        - jqPathExpressions:
+            - .metadata.annotations["estabilis.io/built-at"]
+            - .metadata.annotations["estabilis.io/build-id"]
+            - .metadata.annotations["estabilis.io/git-revision"]
+            - .metadata.annotations["estabilis.io/git-source"]
       syncPolicy:
         retry:
           limit: 10
@@ -90,4 +96,6 @@ spec:
             duration: 10s
             factor: 2
             maxDuration: 3m
+        syncOptions:
+          - RespectIgnoreDifferences=true
 {{- end }}

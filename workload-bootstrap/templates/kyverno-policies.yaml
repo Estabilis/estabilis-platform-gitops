@@ -78,11 +78,17 @@ spec:
           jqPathExpressions:
             # Kyverno admission controller mutates ClusterPolicies after
             # apply, injecting default fields not present in our manifests.
-            # Without this, every policy shows as OutOfSync permanently.
             - .spec.admission
             - .spec.emitWarning
             - .spec.rules[].skipBackgroundRequests
             - .spec.rules[].validate.allowExistingViolations
+        # ADR 0005 L1 provenance annotations change on every promote
+        # (builtAt is temporal). Ignore to prevent cosmetic OutOfSync.
+        - jqPathExpressions:
+            - .metadata.annotations["estabilis.io/built-at"]
+            - .metadata.annotations["estabilis.io/build-id"]
+            - .metadata.annotations["estabilis.io/git-revision"]
+            - .metadata.annotations["estabilis.io/git-source"]
       syncPolicy:
         retry:
           limit: 10
