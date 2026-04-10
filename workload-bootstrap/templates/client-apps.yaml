@@ -1,0 +1,79 @@
+{{- /*
+  Client-managed Applications for workload clusters.
+
+  Discovers Application manifests from the client's gitops repo at
+  platforms/{deploymentId}/apps/ and applies them to the hub's ArgoCD.
+  The client owns the full lifecycle — chart version, values, sync
+  policy. The platform only provides the discovery mechanism and
+  injects the workload cluster destination.
+
+  Uses a matrix generator: clusters × git directories. For each
+  workload cluster × each app directory, renders one Application.
+
+  Only active when clientGitopsRepoUrl and deploymentId are set.
+
+  Sync-wave 10 — after all platform baseline components so that
+  namespaces, network-policies, and RBAC are established before
+  client infrastructure apps are deployed.
+
+  See ADR 0008 Tier 3 (client GitOps).
+*/ -}}
+{{- if and .Values.clientGitopsRepoUrl .Values.deploymentId }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: workload-client-apps
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  {{- toYaml .Values.clusterSelector.matchLabels | nindent 18 }}
+          - git:
+              repoURL: {{ .Values.clientGitopsRepoUrl | quote }}
+              revision: {{ .Values.clientGitopsRepoVersion | default "HEAD" | quote }}
+              directories:
+                - path: "platforms/{{ .Values.deploymentId }}/apps/*"
+  template:
+    metadata:
+      name: "client-{{`{{.path.basename}}`}}-{{`{{.name}}`}}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "10"
+      labels:
+        estabilis.io/workload-cluster: "{{`{{.name}}`}}"
+        estabilis.io/managed-by: client-gitops
+        estabilis.io/component: "{{`{{.path.basename}}`}}"
+    spec:
+      project: default
+      sources:
+        # 1) The client's app directory — contains application.yaml
+        #    which ArgoCD applies as raw manifest (the Application itself
+        #    references its own Helm chart source).
+        - repoURL: {{ .Values.clientGitopsRepoUrl | quote }}
+          targetRevision: {{ .Values.clientGitopsRepoVersion | default "HEAD" | quote }}
+          path: "{{`{{.path}}`}}"
+          directory:
+            recurse: false
+      destination:
+        server: "{{`{{.server}}`}}"
+        namespace: argocd
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - ServerSideApply=true
+          - CreateNamespace=false
+{{- end }}
