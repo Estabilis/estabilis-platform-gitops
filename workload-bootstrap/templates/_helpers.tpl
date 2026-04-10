@@ -40,6 +40,22 @@ managedNamespaceMetadata:
 {{- end -}}
 
 {{/*
+  Privileged namespace metadata — for components that require host access
+  (hostNetwork, hostPID, hostPath). Used by node-exporter.
+  Mirrors `platform-root.managedNamespaceMetadataExcludedPrivileged`.
+*/}}
+{{- define "workload-bootstrap.managedNamespaceMetadataPrivileged" -}}
+managedNamespaceMetadata:
+  labels:
+    estabilis.io/managed-by: workload-bootstrap
+    kyverno.io/exclude: "true"
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/enforce-version: latest
+  annotations:
+    {{- include "workload-bootstrap.estabilisNamespaceAnnotations" . | nindent 4 }}
+{{- end -}}
+
+{{/*
   ADR 0005 Phase 2b — forwards global.provenance.* from the workload-
   bootstrap chart values down into each child ApplicationSet's Helm
   render. The workload-components charts pick these up through their

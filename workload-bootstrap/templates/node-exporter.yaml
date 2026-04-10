@@ -65,7 +65,7 @@ spec:
         server: "{{ `{{server}}` }}"
         namespace: "node-exporter"
       syncPolicy:
-        {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
+        {{- include "workload-bootstrap.managedNamespaceMetadataPrivileged" . | nindent 8 }}
         automated:
           selfHeal: true
         retry:
