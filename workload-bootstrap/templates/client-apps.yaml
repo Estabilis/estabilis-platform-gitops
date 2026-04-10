@@ -57,7 +57,7 @@ spec:
         #    references its own Helm chart source).
         - repoURL: {{ .Values.clientGitopsRepoUrl | quote }}
           targetRevision: {{ .Values.clientGitopsRepoVersion | default "HEAD" | quote }}
-          path: "{{`{{.path}}`}}"
+          path: "{{`{{.path.path}}`}}"
           directory:
             recurse: false
       destination:
