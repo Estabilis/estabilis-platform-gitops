@@ -15,12 +15,24 @@ estabilis.io/website: "https://estabilis.com"
 estabilis.io/source: "https://github.com/Estabilis/estabilis-platform-gitops"
 estabilis.io/support: "ops@estabilis.com"
 estabilis.io/license: "proprietary"
-{{- if and .Values.global .Values.global.provenance .Values.global.provenance.gitRevision }}
-estabilis.io/git-revision: {{ .Values.global.provenance.gitRevision | quote }}
-estabilis.io/git-source: {{ .Values.global.provenance.gitSource | quote }}
-estabilis.io/built-at: {{ .Values.global.provenance.builtAt | quote }}
-estabilis.io/build-id: {{ .Values.global.provenance.buildId | quote }}
-{{- end }}
+{{- /*
+  ADR 0005 L1 provenance annotations — DISABLED due to ArgoCD bug #20477.
+  https://github.com/argoproj/argo-cd/issues/20477
+
+  managedNamespaceMetadata does NOT respect ignoreDifferences. These
+  temporal annotations (built-at, git-revision) change on every promote,
+  causing ALL Applications to show OutOfSync permanently. Confirmed in
+  ArgoCD v3.3.2.
+
+  DO NOT UNCOMMENT until the upstream bug is fixed. Track the issue.
+
+  {{- if and .Values.global .Values.global.provenance .Values.global.provenance.gitRevision }}
+  estabilis.io/git-revision: {{ .Values.global.provenance.gitRevision | quote }}
+  estabilis.io/git-source: {{ .Values.global.provenance.gitSource | quote }}
+  estabilis.io/built-at: {{ .Values.global.provenance.builtAt | quote }}
+  estabilis.io/build-id: {{ .Values.global.provenance.buildId | quote }}
+  {{- end }}
+*/ -}}
 {{- end -}}
 
 {{/*
