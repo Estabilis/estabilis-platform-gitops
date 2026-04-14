@@ -9,9 +9,17 @@ metadata:
     {{- include "estabilis.annotations" . | nindent 4 }}
     policies.kyverno.io/title: Generate PodDisruptionBudget
     policies.kyverno.io/description: >-
-      Automatically generates a PodDisruptionBudget for Deployments with
-      2+ replicas to prevent all pods from being evicted simultaneously
-      during node maintenance or cluster autoscaling.
+      Passively generates a PodDisruptionBudget for Deployments with
+      2+ replicas on admission. The generated PDB uses `maxUnavailable: 1`
+      plus `unhealthyPodEvictionPolicy: AlwaysAllow` so drains (node
+      maintenance, cluster autoscale, teardown) are never blocked by
+      replicas=1 or by NotReady/Terminating pods. The rule is non-invasive:
+      `synchronize: false` means if a chart ships its own PDB (or the
+      client deletes the generated one) Kyverno does NOT fight back;
+      `generateExisting: false` means pre-existing Deployments at
+      policy-install time are left alone. See Estabilis/estabilis-platform-gitops#2
+      for context and the ongoing tenancy design work in
+      Estabilis/estabilis-platform-tools#95.
 spec:
   background: true
   rules:
@@ -28,15 +36,25 @@ spec:
             operator: GreaterThan
             value: "1"
       generate:
-        generateExisting: true
-        synchronize: true
+        # Passive mode: generate once at Deployment admission; do not sync
+        # (if deleted, stay deleted — respects chart-owned PDBs) and do not
+        # retroactively generate for existing Deployments (upgrade safety).
+        generateExisting: false
+        synchronize: false
         apiVersion: policy/v1
         kind: PodDisruptionBudget
         name: "{{`{{ request.object.metadata.name }}`}}-pdb"
         namespace: "{{`{{ request.object.metadata.namespace }}`}}"
         data:
           spec:
-            minAvailable: 1
+            # Drain-friendly defaults:
+            # - maxUnavailable allows evicting at least 1 replica at a time
+            #   (replicas=1 → 0 eviction, but with replicas=2+ always tolerates 1)
+            # - unhealthyPodEvictionPolicy=AlwaysAllow lets NotReady /
+            #   Terminating pods be evicted unconditionally (critical for
+            #   teardown and for recovering from stuck deployments)
+            maxUnavailable: 1
+            unhealthyPodEvictionPolicy: AlwaysAllow
             selector:
               matchLabels: "{{`{{ request.object.spec.selector.matchLabels }}`}}"
 {{- end }}
