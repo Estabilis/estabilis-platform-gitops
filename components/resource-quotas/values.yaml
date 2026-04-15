@@ -68,6 +68,19 @@ namespaces:
       limits.memory: 16Gi
       pods: "30"
       persistentvolumeclaims: "5"
+    # ArgoCD's application-controller alone needs ~1Gi to manage ~40 Apps;
+    # the platform default (128Mi) OOMKills it. Override LimitRange for
+    # this namespace so the controller gets enough memory out of the box.
+    limitRange:
+      default:
+        cpu: "1"
+        memory: 2Gi
+      defaultRequest:
+        cpu: 100m
+        memory: 256Mi
+      max:
+        cpu: "4"
+        memory: 8Gi
   kyverno:
     enabled: true
     hard:
