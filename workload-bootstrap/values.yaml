@@ -14,7 +14,7 @@
 # should pin to when reading $values. Kept in sync with the hub Application's
 # targetRevision so $values always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.17.0
+repoVersion: v0.17.1
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
@@ -112,3 +112,13 @@ configRepoVersion: ""
 clientGitopsRepoUrl: ""
 clientGitopsRepoVersion: ""
 deploymentId: ""
+
+# Scheduling policy per component (ADR 0012 — tracked in
+# Estabilis/estabilis-platform-tools#97). Empty by default — each
+# template falls back to its opinionated mode (usually "auto", some
+# "regular-only" for stateful components).
+# Override per-component:
+#   scheduling:
+#     kyverno: regular-only
+#     cert-manager: spot-only
+scheduling: {}
