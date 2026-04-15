@@ -56,6 +56,12 @@ spec:
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "cert-manager" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "cert-manager" "root" $) | nindent 14 }}
             ignoreMissingValueFiles: true
+            valuesObject:
+              {{- /* Scheduling (ADR 0012 — issue #97) */}}
+              {{- include "workload-bootstrap.schedulingValuesFor" (dict
+                    "mode" (default "auto" (index .Values.scheduling "cert-manager"))
+                    "paths" (list "controller" "webhook" "cainjector" "startupapicheck")
+                 ) | nindent 14 }}
             parameters:
               - name: global.environment
                 value: {{ .Values.global.environment | quote }}

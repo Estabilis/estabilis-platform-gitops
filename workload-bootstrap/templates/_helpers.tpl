@@ -177,3 +177,79 @@ Client GitOps override helpers (ADR 0008 Tier 3).
 - $gitops/platforms/{{ .root.Values.deploymentId }}/workload-overrides/{{ .component }}/values.yaml
 {{- end }}
 {{- end -}}
+
+{{- /*
+  Scheduling helpers — renders tolerations + nodeAffinity for charts so
+  workloads tolerate Spot node taints and optionally express preference
+  for a pool (regular / spot / auto).
+
+  Mirrors the helpers in estabilis-platform/bootstrap/platform-root.
+  ADR 0012 (tracked in Estabilis/estabilis-platform-tools#97).
+
+  Input: .mode — one of {auto, regular-only, spot-only}. Default: auto.
+
+  These helpers are rendered at workload-bootstrap time. Consumed via
+  helm.valuesObject in each Application template below, which gets
+  rendered once per workload cluster by the clusters generator.
+*/ -}}
+
+{{- define "workload-bootstrap.schedulingTolerations" -}}
+- key: "kubernetes.azure.com/scalesetpriority"
+  operator: "Equal"
+  value: "spot"
+  effect: "NoSchedule"
+{{- end -}}
+
+{{- define "workload-bootstrap.schedulingAffinity" -}}
+{{- $mode := default "auto" .mode -}}
+nodeAffinity:
+{{- if eq $mode "auto" }}
+  preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 50
+      preference:
+        matchExpressions:
+          - key: estabilis.io/schedulable
+            operator: In
+            values: ["regular"]
+{{- else if eq $mode "regular-only" }}
+  requiredDuringSchedulingIgnoredDuringExecution:
+    nodeSelectorTerms:
+      - matchExpressions:
+          - key: estabilis.io/schedulable
+            operator: In
+            values: ["regular"]
+{{- else if eq $mode "spot-only" }}
+  requiredDuringSchedulingIgnoredDuringExecution:
+    nodeSelectorTerms:
+      - matchExpressions:
+          - key: estabilis.io/schedulable
+            operator: In
+            values: ["spot"]
+{{- end }}
+{{- end -}}
+
+{{- define "workload-bootstrap.schedulingValuesFor" -}}
+{{- $mode := default "auto" .mode -}}
+{{- $tolerations := include "workload-bootstrap.schedulingTolerations" . -}}
+{{- $affinity := include "workload-bootstrap.schedulingAffinity" (dict "mode" $mode) -}}
+{{- range $comp := .paths }}
+{{ $comp }}:
+  tolerations:
+    {{- $tolerations | nindent 4 }}
+  affinity:
+    {{- $affinity | nindent 4 }}
+{{- end -}}
+{{- end -}}
+
+{{- define "workload-bootstrap.schedulingValuesTopLevel" -}}
+{{- $mode := default "auto" .mode -}}
+tolerations:
+  {{- include "workload-bootstrap.schedulingTolerations" . | nindent 2 }}
+affinity:
+  {{- include "workload-bootstrap.schedulingAffinity" (dict "mode" $mode) | nindent 2 }}
+{{- end -}}
+
+{{- define "workload-bootstrap.schedulingTolerationsOnly" -}}
+tolerations:
+  {{- include "workload-bootstrap.schedulingTolerations" . | nindent 2 }}
+{{- end -}}

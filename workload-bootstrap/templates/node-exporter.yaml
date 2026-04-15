@@ -50,6 +50,9 @@ spec:
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "node-exporter" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "node-exporter" "root" $) | nindent 14 }}
             ignoreMissingValueFiles: true
+            valuesObject:
+              {{- /* Scheduling (ADR 0012 — issue #97). DaemonSet: tolerations only. */}}
+              {{- include "workload-bootstrap.schedulingTolerationsOnly" . | nindent 14 }}
             parameters:
               - name: global.environment
                 value: {{ .Values.global.environment | quote }}
