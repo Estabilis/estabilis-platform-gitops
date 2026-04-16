@@ -1,4 +1,24 @@
 {{- if .Values.policies.scheduling_validate_required_pool.enabled }}
+---
+# ADR 0012 Fase 6 — aggregated ClusterRole so the admission-controller can
+# list nodes. Without this, the apiCall below fails with "unknown" and
+# Kyverno's failurePolicy=Ignore lets the resource through, defeating
+# Enforce. Aggregation (label rbac.kyverno.io/aggregate-to-admission-controller)
+# is the chart-recommended way to extend Kyverno's permissions.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:admission-controller:nodes-read
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+    rbac.kyverno.io/aggregate-to-admission-controller: "true"
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -14,10 +34,8 @@ metadata:
       label `estabilis.io/schedulable` (values=regular or values=spot)
       when the cluster has no nodes carrying that label. Prevents pods
       from staying Pending forever because of a hard affinity against a
-      pool that was never provisioned (e.g. `scheduling.<component>:
-      regular-only` on a spot-only cluster, or vice-versa). The `auto`
-      mode (default) uses `preferredDuringScheduling`, not required, so
-      it never triggers this policy.
+      pool that was never provisioned. The `auto` mode (default) uses
+      `preferredDuringScheduling`, not required, so never triggers.
 spec:
   validationFailureAction: {{ .Values.policies.scheduling_validate_required_pool.action | default .Values.defaultAction | default "Enforce" }}
   background: false
@@ -37,8 +55,8 @@ spec:
             default: 0
         - name: regularNodeCount
           apiCall:
-            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dregular"
-            jmesPath: "items | length(@)"
+            urlPath: "/api/v1/nodes"
+            jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'regular'] | length(@)"
       preconditions:
         all:
           - key: "{{`{{ asksRegularRequired }}`}}"
@@ -71,8 +89,8 @@ spec:
             default: 0
         - name: spotNodeCount
           apiCall:
-            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dspot"
-            jmesPath: "items | length(@)"
+            urlPath: "/api/v1/nodes"
+            jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'spot'] | length(@)"
       preconditions:
         all:
           - key: "{{`{{ asksSpotRequired }}`}}"
@@ -107,8 +125,8 @@ spec:
             default: 0
         - name: regularNodeCount
           apiCall:
-            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dregular"
-            jmesPath: "items | length(@)"
+            urlPath: "/api/v1/nodes"
+            jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'regular'] | length(@)"
       preconditions:
         all:
           - key: "{{`{{ asksRegularRequired }}`}}"
@@ -138,8 +156,8 @@ spec:
             default: 0
         - name: spotNodeCount
           apiCall:
-            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dspot"
-            jmesPath: "items | length(@)"
+            urlPath: "/api/v1/nodes"
+            jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'spot'] | length(@)"
       preconditions:
         all:
           - key: "{{`{{ asksSpotRequired }}`}}"
@@ -172,8 +190,8 @@ spec:
             default: 0
         - name: regularNodeCount
           apiCall:
-            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dregular"
-            jmesPath: "items | length(@)"
+            urlPath: "/api/v1/nodes"
+            jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'regular'] | length(@)"
       preconditions:
         all:
           - key: "{{`{{ asksRegularRequired }}`}}"
@@ -203,8 +221,8 @@ spec:
             default: 0
         - name: spotNodeCount
           apiCall:
-            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dspot"
-            jmesPath: "items | length(@)"
+            urlPath: "/api/v1/nodes"
+            jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'spot'] | length(@)"
       preconditions:
         all:
           - key: "{{`{{ asksSpotRequired }}`}}"
