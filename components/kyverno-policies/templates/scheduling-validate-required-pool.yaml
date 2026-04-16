@@ -55,6 +55,7 @@ spec:
             default: 0
         - name: regularNodeCount
           apiCall:
+            method: GET
             urlPath: "/api/v1/nodes"
             jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'regular'] | length(@)"
       preconditions:
@@ -89,6 +90,7 @@ spec:
             default: 0
         - name: spotNodeCount
           apiCall:
+            method: GET
             urlPath: "/api/v1/nodes"
             jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'spot'] | length(@)"
       preconditions:
@@ -125,6 +127,7 @@ spec:
             default: 0
         - name: regularNodeCount
           apiCall:
+            method: GET
             urlPath: "/api/v1/nodes"
             jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'regular'] | length(@)"
       preconditions:
@@ -156,6 +159,7 @@ spec:
             default: 0
         - name: spotNodeCount
           apiCall:
+            method: GET
             urlPath: "/api/v1/nodes"
             jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'spot'] | length(@)"
       preconditions:
@@ -190,6 +194,7 @@ spec:
             default: 0
         - name: regularNodeCount
           apiCall:
+            method: GET
             urlPath: "/api/v1/nodes"
             jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'regular'] | length(@)"
       preconditions:
@@ -221,6 +226,7 @@ spec:
             default: 0
         - name: spotNodeCount
           apiCall:
+            method: GET
             urlPath: "/api/v1/nodes"
             jmesPath: "items[?metadata.labels.\"estabilis.io/schedulable\" == 'spot'] | length(@)"
       preconditions:
