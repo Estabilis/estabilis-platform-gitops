@@ -81,9 +81,8 @@ spec:
         namespace: "kyverno"
       {{- /*
         Ignore label/annotation drift on CRDs — matches the hub's
-        kyverno.yaml template. Without this, every sync flaps because
-        mutate.inject-platform-label rewrites CRD metadata after
-        ArgoCD applies it.
+        kyverno.yaml template. Kyverno's own admission mutates CRDs
+        (commonLabels, ownership), so without this every sync flaps.
       */}}
       ignoreDifferences:
         - group: apiextensions.k8s.io

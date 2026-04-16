@@ -118,8 +118,6 @@ policies:
   block_client_in_platform_ns:
     enabled: true
     action: ""
-  inject_platform_label:
-    enabled: true
   # ADR 0012 Fase 6 — blocks hard nodeAffinity on
   # estabilis.io/schedulable=<regular|spot> when the target pool is absent.
   # Action defaults to Enforce (validate-and-block): "auto" mode uses
