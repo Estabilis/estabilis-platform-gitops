@@ -35,6 +35,20 @@ spec:
                 - kube-state-metrics
                 - node-exporter
                 - policy-reporter
+      # Platform-emitted Ingresses (via the ADR 0014 multi-exposure
+      # charts: grafana-ingress, argocd-ingress, hubble-ui-ingress,
+      # loki-ingress) are exempt — they all carry the standard S2
+      # identity label app.kubernetes.io/part-of=estabilis-platform
+      # rendered by the estabilis.labels helper (ADR 0003 §S2). The
+      # deny rule still catches anything created accidentally by an
+      # upstream chart sub-template or by a human operator, which is
+      # what the policy is here to prevent.
+      exclude:
+        any:
+          - resources:
+              selector:
+                matchLabels:
+                  app.kubernetes.io/part-of: estabilis-platform
       validate:
         message: "Ingress resources are not allowed in platform namespaces. Platform ingress is managed by the upstream configuration."
         deny: {}
