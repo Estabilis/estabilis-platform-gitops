@@ -1,0 +1,224 @@
+{{- if .Values.policies.scheduling_validate_required_pool.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: scheduling-validate-required-pool
+  labels:
+    {{- include "estabilis.labels" . | nindent 4 }}
+  annotations:
+    {{- include "estabilis.annotations" . | nindent 4 }}
+    policies.kyverno.io/title: Scheduling — Validate Required Pool
+    policies.kyverno.io/description: >-
+      ADR 0012 Fase 6. Blocks admission of workloads that declare
+      nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution on the
+      label `estabilis.io/schedulable` (values=regular or values=spot)
+      when the cluster has no nodes carrying that label. Prevents pods
+      from staying Pending forever because of a hard affinity against a
+      pool that was never provisioned (e.g. `scheduling.<component>:
+      regular-only` on a spot-only cluster, or vice-versa). The `auto`
+      mode (default) uses `preferredDuringScheduling`, not required, so
+      it never triggers this policy.
+spec:
+  validationFailureAction: {{ .Values.policies.scheduling_validate_required_pool.action | default .Values.defaultAction | default "Enforce" }}
+  background: false
+  rules:
+    # -----------------------------------------------------------------
+    # Controllers with .spec.template.spec (Deployment/StatefulSet/DS/Job)
+    # -----------------------------------------------------------------
+    - name: require-regular-pool-controllers
+      match:
+        any:
+          - resources:
+              kinds: [Deployment, StatefulSet, DaemonSet, Job]
+      context:
+        - name: asksRegularRequired
+          variable:
+            jmesPath: "request.object.spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='estabilis.io/schedulable' && contains(values, 'regular')][] | length(@)"
+            default: 0
+        - name: regularNodeCount
+          apiCall:
+            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dregular"
+            jmesPath: "items | length(@)"
+      preconditions:
+        all:
+          - key: "{{`{{ asksRegularRequired }}`}}"
+            operator: GreaterThan
+            value: 0
+      validate:
+        message: >-
+          {{`{{ request.object.kind }}/{{ request.object.metadata.name }}`}} exige
+          nodeAffinity required=regular (label estabilis.io/schedulable=regular)
+          mas o cluster nao tem nenhum node regular. Opcoes: (a) mudar
+          scheduling.<component> para 'auto' (default, usa preferred);
+          (b) habilitar workload_regular_enabled=true no terraform.tfvars.
+          ADR 0012 / Fase 6.
+        deny:
+          conditions:
+            all:
+              - key: "{{`{{ regularNodeCount }}`}}"
+                operator: Equals
+                value: 0
+
+    - name: require-spot-pool-controllers
+      match:
+        any:
+          - resources:
+              kinds: [Deployment, StatefulSet, DaemonSet, Job]
+      context:
+        - name: asksSpotRequired
+          variable:
+            jmesPath: "request.object.spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='estabilis.io/schedulable' && contains(values, 'spot')][] | length(@)"
+            default: 0
+        - name: spotNodeCount
+          apiCall:
+            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dspot"
+            jmesPath: "items | length(@)"
+      preconditions:
+        all:
+          - key: "{{`{{ asksSpotRequired }}`}}"
+            operator: GreaterThan
+            value: 0
+      validate:
+        message: >-
+          {{`{{ request.object.kind }}/{{ request.object.metadata.name }}`}} exige
+          nodeAffinity required=spot (label estabilis.io/schedulable=spot) mas
+          o cluster nao tem nenhum node spot. Opcoes: (a) mudar
+          scheduling.<component> para 'auto' (default); (b) habilitar
+          workload_spot_enabled=true no terraform.tfvars. ADR 0012 / Fase 6.
+        deny:
+          conditions:
+            all:
+              - key: "{{`{{ spotNodeCount }}`}}"
+                operator: Equals
+                value: 0
+
+    # -----------------------------------------------------------------
+    # CronJob nests PodSpec under .spec.jobTemplate.spec.template.spec
+    # -----------------------------------------------------------------
+    - name: require-regular-pool-cronjobs
+      match:
+        any:
+          - resources:
+              kinds: [CronJob]
+      context:
+        - name: asksRegularRequired
+          variable:
+            jmesPath: "request.object.spec.jobTemplate.spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='estabilis.io/schedulable' && contains(values, 'regular')][] | length(@)"
+            default: 0
+        - name: regularNodeCount
+          apiCall:
+            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dregular"
+            jmesPath: "items | length(@)"
+      preconditions:
+        all:
+          - key: "{{`{{ asksRegularRequired }}`}}"
+            operator: GreaterThan
+            value: 0
+      validate:
+        message: >-
+          CronJob/{{`{{ request.object.metadata.name }}`}} exige nodeAffinity
+          required=regular mas o cluster nao tem nenhum node regular.
+          ADR 0012 / Fase 6.
+        deny:
+          conditions:
+            all:
+              - key: "{{`{{ regularNodeCount }}`}}"
+                operator: Equals
+                value: 0
+
+    - name: require-spot-pool-cronjobs
+      match:
+        any:
+          - resources:
+              kinds: [CronJob]
+      context:
+        - name: asksSpotRequired
+          variable:
+            jmesPath: "request.object.spec.jobTemplate.spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='estabilis.io/schedulable' && contains(values, 'spot')][] | length(@)"
+            default: 0
+        - name: spotNodeCount
+          apiCall:
+            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dspot"
+            jmesPath: "items | length(@)"
+      preconditions:
+        all:
+          - key: "{{`{{ asksSpotRequired }}`}}"
+            operator: GreaterThan
+            value: 0
+      validate:
+        message: >-
+          CronJob/{{`{{ request.object.metadata.name }}`}} exige nodeAffinity
+          required=spot mas o cluster nao tem nenhum node spot.
+          ADR 0012 / Fase 6.
+        deny:
+          conditions:
+            all:
+              - key: "{{`{{ spotNodeCount }}`}}"
+                operator: Equals
+                value: 0
+
+    # -----------------------------------------------------------------
+    # Bare Pod (PodSpec at root)
+    # -----------------------------------------------------------------
+    - name: require-regular-pool-pods
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      context:
+        - name: asksRegularRequired
+          variable:
+            jmesPath: "request.object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='estabilis.io/schedulable' && contains(values, 'regular')][] | length(@)"
+            default: 0
+        - name: regularNodeCount
+          apiCall:
+            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dregular"
+            jmesPath: "items | length(@)"
+      preconditions:
+        all:
+          - key: "{{`{{ asksRegularRequired }}`}}"
+            operator: GreaterThan
+            value: 0
+      validate:
+        message: >-
+          Pod/{{`{{ request.object.metadata.name }}`}} exige nodeAffinity
+          required=regular mas o cluster nao tem nenhum node regular.
+          ADR 0012 / Fase 6.
+        deny:
+          conditions:
+            all:
+              - key: "{{`{{ regularNodeCount }}`}}"
+                operator: Equals
+                value: 0
+
+    - name: require-spot-pool-pods
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      context:
+        - name: asksSpotRequired
+          variable:
+            jmesPath: "request.object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='estabilis.io/schedulable' && contains(values, 'spot')][] | length(@)"
+            default: 0
+        - name: spotNodeCount
+          apiCall:
+            urlPath: "/api/v1/nodes?labelSelector=estabilis.io%2Fschedulable%3Dspot"
+            jmesPath: "items | length(@)"
+      preconditions:
+        all:
+          - key: "{{`{{ asksSpotRequired }}`}}"
+            operator: GreaterThan
+            value: 0
+      validate:
+        message: >-
+          Pod/{{`{{ request.object.metadata.name }}`}} exige nodeAffinity
+          required=spot mas o cluster nao tem nenhum node spot.
+          ADR 0012 / Fase 6.
+        deny:
+          conditions:
+            all:
+              - key: "{{`{{ spotNodeCount }}`}}"
+                operator: Equals
+                value: 0
+{{- end }}
