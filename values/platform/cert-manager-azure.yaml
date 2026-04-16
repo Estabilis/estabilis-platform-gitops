@@ -1,0 +1,21 @@
+# Azure-specific overlay for cert-manager on the hub cluster
+# Loaded in addition to cert-manager.yaml when global.provider=azure.
+#
+# Wires the cert-manager controller pod for Azure Workload Identity so the
+# DNS-01 solver (ClusterIssuer letsencrypt-production) can authenticate
+# against Azure DNS as mi-<prefix>-cert-manager. Without these labels and
+# annotations the AKS Workload Identity webhook does not inject the
+# projected service account token and the challenge fails with:
+#   "ManagedIdentityCredential authentication failed. Identity not found"
+#
+# The client-id is dynamic per-cluster and is injected as a helm parameter
+# by platform-root (see bootstrap/platform-root/templates/cert-manager.yaml).
+
+serviceAccount:
+  labels:
+    azure.workload.identity/use: "true"
+  annotations:
+    azure.workload.identity/client-id: ""  # injected via helm.parameter
+
+podLabels:
+  azure.workload.identity/use: "true"
