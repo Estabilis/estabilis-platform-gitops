@@ -1,10 +1,12 @@
 global:
   provider: ""
+  dnsProvider: ""           # "azure" | "cloudflare" — chooses which ClusterIssuer is rendered
   letsencryptEmail: ""
-  subscriptionId: ""
-  resourceGroup: ""
+  subscriptionId: ""        # used when dnsProvider=azure
+  resourceGroup: ""         # used when dnsProvider=azure
   domain: ""
   effectiveDomain: ""
+  cloudflareApiToken: ""    # used when dnsProvider=cloudflare
 identity:
   certManager:
-    clientId: ""
+    clientId: ""            # used when dnsProvider=azure

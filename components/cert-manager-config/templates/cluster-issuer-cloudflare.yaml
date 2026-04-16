@@ -1,0 +1,33 @@
+{{- $dnsProvider := .Values.global.dnsProvider | default .Values.global.provider -}}
+{{- if eq $dnsProvider "cloudflare" }}
+# Secret consumed by the ClusterIssuer below. cert-manager looks up this
+# Secret in its own namespace (cert-manager) regardless of where the
+# Certificate resource lives. Rendered only when dnsProvider=cloudflare.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudflare-api-token
+  namespace: cert-manager
+  {{- include "estabilis.metadata" . | nindent 2 }}
+type: Opaque
+stringData:
+  api-token: {{ .Values.global.cloudflareApiToken | quote }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-production
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: {{ .Values.global.letsencryptEmail | quote }}
+    privateKeySecretRef:
+      name: letsencrypt-production-account-key
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+{{- end }}
