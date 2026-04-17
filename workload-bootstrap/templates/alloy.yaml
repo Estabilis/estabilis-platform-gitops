@@ -1,0 +1,81 @@
+{{- /*
+  Grafana Alloy (telemetry collector) for every workload cluster.
+
+  Collects logs from all pods and metrics from kube-state-metrics,
+  node-exporter, kubelet/cAdvisor, and annotation-discovered client
+  pods. Pushes to the hub's Loki and Mimir via HTTPS remote_write.
+
+  The push URLs and cluster name are injected via valuesObject,
+  replacing PLACEHOLDER strings in the Alloy config. The URLs are
+  derived from the hub's domain + host_pattern at the ApplicationSet
+  template level (not from bridge annotations — the hub's naming
+  convention is deterministic).
+
+  Opt-in toggle: components.alloy
+  Sync-wave 8 — after observability collectors (kube-state-metrics,
+  node-exporter at wave 7) are available for scraping.
+*/ -}}
+{{- if index .Values.components "alloy" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: alloy
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "alloy-{{ `{{ .name }}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "8"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{ .name }}` }}"
+    spec:
+      project: workload-baseline
+      sources:
+        - repoURL: https://grafana.github.io/helm-charts
+          chart: alloy
+          targetRevision: "1.6.2"
+          helm:
+            releaseName: "alloy"
+            valueFiles:
+              - $values/values/workload/alloy.yaml
+              {{- include "workload-bootstrap.overrideValueFile" (dict "component" "alloy" "root" $) | nindent 14 }}
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "alloy" "root" $) | nindent 14 }}
+            ignoreMissingValueFiles: true
+            valuesObject:
+              alloy:
+                configMap:
+                  create: false
+            parameters:
+              - name: global.environment
+                value: {{ .Values.global.environment | quote }}
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+        {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{ .server }}` }}"
+        namespace: "alloy"
+      syncPolicy:
+        {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
+        automated:
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}

@@ -1,0 +1,42 @@
+# Workload Alloy — base chart values (upstream defaults).
+# The Alloy pipeline config (loki.write, prometheus.remote_write, scrape jobs)
+# is deployment-specific and lives in the client gitops repo override:
+#   platforms/{deployment-id}/workload-overrides/alloy/values.yaml
+#
+# This file provides chart structure only (DaemonSet, resources, tolerations).
+
+commonLabels:
+  estabilis.io/component: alloy
+
+# Image pinned by digest per require-image-digest Kyverno policy.
+# Chart supports image.digest natively (overrides image.tag).
+image:
+  digest: "sha256:91b90e5d90f092affb2db04f973a59d15740e47a3b33932756fca6f53ffbdd39"
+
+alloy:
+  clustering:
+    enabled: true
+  mounts:
+    extra:
+      - name: tmp
+        mountPath: /tmp
+  securityContext:
+    privileged: true
+    runAsUser: 0
+    runAsGroup: 0
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+controller:
+  type: "daemonset"
+
+tolerations:
+  - key: "kubernetes.azure.com/scalesetpriority"
+    operator: "Equal"
+    value: "spot"
+    effect: "NoSchedule"
