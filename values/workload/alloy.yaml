@@ -16,15 +16,20 @@ image:
 alloy:
   clustering:
     enabled: true
-  # Alloy needs root + privileged to read /var/log/pods on the host.
-  # The chart's default securityContext has allowPrivilegeEscalation=false
-  # which conflicts with privileged=true — override the full block.
+  # Workload Alloy does NOT need privileged or root (no eBPF profiling —
+  # that's hub-only). loki.source.kubernetes reads logs via the K8s API
+  # (kubelet /containerLogs), not from /var/log. Runs as non-root,
+  # compatible with PodSecurity "baseline" and all Kyverno policies.
   securityContext:
-    privileged: true
-    runAsUser: 0
-    runAsGroup: 0
-    allowPrivilegeEscalation: true
-    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
   resources:
     requests:
       cpu: 50m
