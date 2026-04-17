@@ -19,6 +19,8 @@ metadata:
   name: external-dns-config
   namespace: argocd
 spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
   generators:
     - clusters:
         selector:
@@ -26,11 +28,11 @@ spec:
             {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
   template:
     metadata:
-      name: "external-dns-config-{{ `{{name}}` }}"
+      name: "external-dns-config-{{ `{{ .name }}` }}"
       annotations:
         argocd.argoproj.io/sync-wave: "7"
       labels:
-        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+        estabilis.io/workload-cluster: "{{ `{{ .name }}` }}"
     spec:
       project: workload-baseline
       sources:
@@ -63,7 +65,7 @@ spec:
         {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
         {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
       destination:
-        server: "{{ `{{server}}` }}"
+        server: "{{ `{{ .server }}` }}"
         namespace: "external-dns"
       syncPolicy:
         {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}

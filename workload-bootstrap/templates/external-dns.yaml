@@ -6,6 +6,8 @@ metadata:
   name: external-dns
   namespace: argocd
 spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
   generators:
     - clusters:
         selector:
@@ -13,11 +15,11 @@ spec:
             {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
   template:
     metadata:
-      name: "external-dns-{{ `{{name}}` }}"
+      name: "external-dns-{{ `{{ .name }}` }}"
       annotations:
         argocd.argoproj.io/sync-wave: "7"
       labels:
-        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+        estabilis.io/workload-cluster: "{{ `{{ .name }}` }}"
     spec:
       project: workload-baseline
       sources:
@@ -37,7 +39,7 @@ spec:
               - name: domainFilters[0]
                 value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.domain" }}` }}'
               - name: txtOwnerId
-                value: '{{ `{{name}}` }}'
+                value: '{{ `{{ .name }}` }}'
               - name: serviceAccount.annotations.azure\.workload\.identity/client-id
                 value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.external-dns-client-id" }}` }}'
               - name: zoneIdFilters[0]
@@ -49,7 +51,7 @@ spec:
         {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
         {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
       destination:
-        server: "{{ `{{server}}` }}"
+        server: "{{ `{{ .server }}` }}"
         namespace: "external-dns"
       syncPolicy:
         {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
