@@ -16,7 +16,7 @@ spec:
           azureDNS:
             subscriptionID: {{ .Values.global.subscriptionId | quote }}
             resourceGroupName: {{ .Values.global.resourceGroup | quote }}
-            hostedZoneName: {{ .Values.global.effectiveDomain | quote }}
+            hostedZoneName: {{ .Values.global.domain | quote }}
             environment: AzurePublicCloud
             managedIdentity:
               clientID: {{ .Values.identity.certManager.clientId | quote }}
