@@ -42,13 +42,13 @@ spec:
                 - path: "platforms/{{ .Values.deploymentId }}/apps/*"
   template:
     metadata:
-      name: "{{`{{.path.basename}}`}}-{{`{{.name}}`}}"
+      name: "{{`{{ .path.basename }}`}}-{{`{{ .name }}`}}"
       annotations:
         argocd.argoproj.io/sync-wave: "10"
       labels:
-        estabilis.io/workload-cluster: "{{`{{.name}}`}}"
+        estabilis.io/workload-cluster: "{{`{{ .name }}`}}"
         estabilis.io/managed-by: client-gitops
-        estabilis.io/component: "{{`{{.path.basename}}`}}"
+        estabilis.io/component: "{{`{{ .path.basename }}`}}"
     spec:
       project: workload-infra
       sources:
@@ -57,7 +57,7 @@ spec:
         #    references its own Helm chart source).
         - repoURL: {{ .Values.clientGitopsRepoUrl | quote }}
           targetRevision: {{ .Values.clientGitopsRepoVersion | default "HEAD" | quote }}
-          path: "{{`{{.path.path}}`}}"
+          path: "{{`{{ .path.path }}`}}"
           directory:
             recurse: false
       destination:
