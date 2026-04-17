@@ -14,7 +14,7 @@
 # should pin to when reading $values. Kept in sync with the hub Application's
 # targetRevision so $values always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.21.0
+repoVersion: v0.22.0
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
@@ -90,6 +90,10 @@ components:
 
   # --- network observability (ACNS only) ---
   hubble-ui: true            # ACNS: Cilium Hubble UI for network flow visualization
+
+  # --- ingress (ADR 0014) ---
+  traefik: true              # ingress controller for exposure charts
+  hubble-ui-ingress: true    # Hubble UI external ingress (requires traefik)
 
 # ---------------------------------------------------------------------------
 # Downstream override repo (per-client configuration)

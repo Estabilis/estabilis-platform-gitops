@@ -1,0 +1,83 @@
+# Workload Traefik — ingress controller for ADR 0014 exposures.
+# Same upstream chart as hub, workload-specific scheduling + resources.
+
+commonLabels:
+  estabilis.io/component: traefik
+
+# --- Images pinned by digest (require-image-digest policy) ---
+image:
+  registry: docker.io
+  repository: traefik
+  tag: "v3.4.0"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+deployment:
+  replicas: 2
+
+service:
+  type: LoadBalancer
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /ping
+  spec:
+    externalTrafficPolicy: Local
+
+providers:
+  kubernetesCRD:
+    enabled: true
+    allowCrossNamespace: true
+  kubernetesIngress:
+    enabled: true
+
+logs:
+  general:
+    level: INFO
+  access:
+    enabled: true
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addServicesLabels: true
+
+ports:
+  web:
+    port: 8000
+    exposedPort: 80
+  websecure:
+    port: 8443
+    exposedPort: 443
+  metrics:
+    port: 9100
+    expose:
+      default: false
+
+tolerations:
+  - key: "kubernetes.azure.com/scalesetpriority"
+    operator: "Equal"
+    value: "spot"
+    effect: "NoSchedule"
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+
+podSecurityContext:
+  fsGroup: 65532
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+    add: [NET_BIND_SERVICE]
+  seccompProfile:
+    type: RuntimeDefault

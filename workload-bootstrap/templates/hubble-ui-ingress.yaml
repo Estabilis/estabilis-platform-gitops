@@ -1,0 +1,62 @@
+{{- /*
+  Hubble UI ingress for workload clusters (ADR 0014 exposure model).
+
+  Renders Ingress + Middleware + Certificate per enabled exposure profile.
+  Uses the same chart as the hub (core/components/hubble-ui-ingress from
+  estabilis-platform repo). Exposure config comes from client gitops
+  override: platforms/{deployment-id}/workload-overrides/hubble-ui-ingress/values.yaml
+
+  Opt-in toggle: components.hubble-ui-ingress
+  Sync-wave 9 — after Traefik (wave 7) so IngressClass + CRDs exist.
+*/ -}}
+{{- if index .Values.components "hubble-ui-ingress" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: hubble-ui-ingress
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "hubble-ui-ingress-{{ `{{ .name }}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "9"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{ .name }}` }}"
+    spec:
+      project: workload-baseline
+      sources:
+        - repoURL: https://github.com/Estabilis/estabilis-platform.git
+          targetRevision: {{ .Values.platformVersion | quote }}
+          path: core/components/hubble-ui-ingress
+          helm:
+            releaseName: "hubble-ui-ingress"
+            valueFiles:
+              - $values/core/components/hubble-ui-ingress/values.yaml
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "hubble-ui-ingress" "root" $) | nindent 14 }}
+            ignoreMissingValueFiles: true
+            parameters:
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        - repoURL: https://github.com/Estabilis/estabilis-platform.git
+          targetRevision: {{ .Values.platformVersion | quote }}
+          ref: values
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{ .server }}` }}"
+        namespace: "kube-system"
+      syncPolicy:
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+{{- end }}
