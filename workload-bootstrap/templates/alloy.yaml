@@ -5,11 +5,10 @@
   node-exporter, kubelet/cAdvisor, and annotation-discovered client
   pods. Pushes to the hub's Loki and Mimir via HTTPS remote_write.
 
-  The push URLs and cluster name are injected via valuesObject,
-  replacing PLACEHOLDER strings in the Alloy config. The URLs are
-  derived from the hub's domain + host_pattern at the ApplicationSet
-  template level (not from bridge annotations — the hub's naming
-  convention is deterministic).
+  Push URLs are derived dynamically from bridge annotations:
+    LOKI_PUSH_URL  = https://loki.{hub-cluster-name}.{domain}/loki/api/v1/push
+    MIMIR_PUSH_URL = https://mimir.{hub-cluster-name}.{domain}/api/v1/push
+  The base River config reads these via sys.env() — no hardcoded URLs.
 
   Opt-in toggle: components.alloy
   Sync-wave 8 — after observability collectors (kube-state-metrics,
@@ -51,8 +50,19 @@ spec:
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "alloy" "root" $) | nindent 14 }}
             {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
             parameters:
-              - name: global.environment
-                value: {{ .Values.global.environment | quote }}
+              {{- /* Push URLs derived from bridge annotations — no hardcoded URLs */ -}}
+              - name: alloy.extraEnv[0].name
+                value: LOKI_PUSH_URL
+              - name: alloy.extraEnv[0].value
+                value: 'https://loki.{{ `{{ index .metadata.annotations "estabilis.io/bridge.hub-cluster-name" }}` }}.{{ `{{ index .metadata.annotations "estabilis.io/bridge.domain" }}` }}/loki/api/v1/push'
+              - name: alloy.extraEnv[1].name
+                value: MIMIR_PUSH_URL
+              - name: alloy.extraEnv[1].value
+                value: 'https://mimir.{{ `{{ index .metadata.annotations "estabilis.io/bridge.hub-cluster-name" }}` }}.{{ `{{ index .metadata.annotations "estabilis.io/bridge.domain" }}` }}/api/v1/push'
+              - name: alloy.extraEnv[2].name
+                value: CLUSTER_NAME
+              - name: alloy.extraEnv[2].value
+                value: '{{ `{{ .name }}` }}'
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}

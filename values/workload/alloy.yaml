@@ -1,9 +1,12 @@
-# Workload Alloy — base chart values (upstream defaults).
-# The Alloy pipeline config (loki.write, prometheus.remote_write, scrape jobs)
-# is deployment-specific and lives in the client gitops repo override:
-#   platforms/{deployment-id}/workload-overrides/alloy/values.yaml
+# Workload Alloy — base chart values.
 #
-# This file provides chart structure only (DaemonSet, resources, tolerations).
+# Push URLs are injected via environment variables by the workload-bootstrap
+# ApplicationSet template (derived from bridge annotations). The River config
+# below reads them with sys.env() — no hardcoded URLs anywhere.
+#
+# Client gitops overrides can add extra scrape targets or relabel rules
+# without duplicating the full config.
+#
 # All values here must pass Kyverno policies (require-image-digest,
 # require-limits, require-run-as-nonroot, drop-all-capabilities,
 # require-seccomp-profile, no-privilege-escalation) and PodSecurity baseline.
@@ -60,6 +63,218 @@ alloy:
     limits:
       cpu: 500m
       memory: 512Mi
+  configMap:
+    content: |
+      // =================================================================
+      // Workload Alloy — logs + metrics → hub platform
+      // =================================================================
+      // Push URLs come from environment variables injected by the
+      // workload-bootstrap ApplicationSet (derived from bridge annotations).
+      // LOKI_PUSH_URL, MIMIR_PUSH_URL, CLUSTER_NAME are always set.
+
+      // --- Log collection (all pods → hub Loki) ---
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      loki.source.kubernetes "pod_logs" {
+        targets    = discovery.kubernetes.pods.targets
+        forward_to = [loki.write.hub.receiver]
+      }
+
+      loki.write "hub" {
+        endpoint {
+          url = sys.env("LOKI_PUSH_URL")
+        }
+        external_labels = {
+          cluster = sys.env("CLUSTER_NAME"),
+        }
+      }
+
+      // --- Metrics: kube-state-metrics ---
+      prometheus.scrape "kube_state_metrics" {
+        targets = [{
+          __address__ = "kube-state-metrics.kube-state-metrics.svc.cluster.local:8080",
+        }]
+        forward_to = [prometheus.relabel.kube_state_metrics.receiver]
+        clustering {
+          enabled = true
+        }
+      }
+
+      prometheus.relabel "kube_state_metrics" {
+        rule {
+          target_label = "job"
+          replacement  = "kube-state-metrics"
+        }
+        forward_to = [prometheus.remote_write.hub.receiver]
+      }
+
+      // --- Metrics: node-exporter ---
+      discovery.kubernetes "node_exporter" {
+        role = "pod"
+        namespaces {
+          names = ["node-exporter"]
+        }
+      }
+
+      discovery.relabel "node_exporter" {
+        targets = discovery.kubernetes.node_exporter.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          action        = "keep"
+          regex         = "prometheus-node-exporter"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_ip"]
+          target_label  = "__address__"
+          replacement   = "$1:9100"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          target_label  = "node"
+        }
+      }
+
+      prometheus.scrape "node_exporter" {
+        targets    = discovery.relabel.node_exporter.output
+        forward_to = [prometheus.relabel.node_exporter.receiver]
+        clustering {
+          enabled = true
+        }
+      }
+
+      prometheus.relabel "node_exporter" {
+        rule {
+          target_label = "job"
+          replacement  = "node-exporter"
+        }
+        forward_to = [prometheus.remote_write.hub.receiver]
+      }
+
+      // --- Metrics: kubelet ---
+      discovery.kubernetes "nodes" {
+        role = "node"
+      }
+
+      discovery.relabel "kubelet" {
+        targets = discovery.kubernetes.nodes.targets
+
+        rule {
+          target_label = "__address__"
+          replacement  = "kubernetes.default.svc.cluster.local:443"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_node_name"]
+          regex         = "(.+)"
+          target_label  = "__metrics_path__"
+          replacement   = "/api/v1/nodes/$1/proxy/metrics"
+        }
+      }
+
+      prometheus.scrape "kubelet" {
+        targets      = discovery.relabel.kubelet.output
+        scheme       = "https"
+        bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tls_config {
+          insecure_skip_verify = true
+        }
+        forward_to = [prometheus.relabel.kubelet.receiver]
+        clustering {
+          enabled = true
+        }
+      }
+
+      prometheus.relabel "kubelet" {
+        rule {
+          target_label = "job"
+          replacement  = "kubelet"
+        }
+        forward_to = [prometheus.remote_write.hub.receiver]
+      }
+
+      // --- Metrics: cAdvisor ---
+      discovery.relabel "cadvisor" {
+        targets = discovery.kubernetes.nodes.targets
+
+        rule {
+          target_label = "__address__"
+          replacement  = "kubernetes.default.svc.cluster.local:443"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_node_name"]
+          regex         = "(.+)"
+          target_label  = "__metrics_path__"
+          replacement   = "/api/v1/nodes/$1/proxy/metrics/cadvisor"
+        }
+      }
+
+      prometheus.scrape "cadvisor" {
+        targets      = discovery.relabel.cadvisor.output
+        scheme       = "https"
+        bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tls_config {
+          insecure_skip_verify = true
+        }
+        forward_to = [prometheus.relabel.cadvisor.receiver]
+        clustering {
+          enabled = true
+        }
+      }
+
+      prometheus.relabel "cadvisor" {
+        rule {
+          target_label = "job"
+          replacement  = "cadvisor"
+        }
+        forward_to = [prometheus.remote_write.hub.receiver]
+      }
+
+      // --- Metrics: annotation-discovered client pods ---
+      discovery.kubernetes "client_pods" {
+        role = "pod"
+      }
+
+      discovery.relabel "client_pods" {
+        targets = discovery.kubernetes.client_pods.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+          regex         = "true"
+          action        = "keep"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_port"]
+          target_label  = "__address__"
+          regex         = "(.+)"
+          replacement   = "${1}:$0"
+          action        = "replace"
+        }
+      }
+
+      prometheus.scrape "client_pods" {
+        targets    = discovery.relabel.client_pods.output
+        forward_to = [prometheus.remote_write.hub.receiver]
+        clustering {
+          enabled = true
+        }
+      }
+
+      // --- Remote write to hub Mimir ---
+      prometheus.remote_write "hub" {
+        external_labels = {
+          cluster = sys.env("CLUSTER_NAME"),
+        }
+        endpoint {
+          url = sys.env("MIMIR_PUSH_URL")
+        }
+      }
 
 controller:
   type: "daemonset"
