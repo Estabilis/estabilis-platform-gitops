@@ -1,0 +1,18 @@
+# Pre-commit hooks — run locally before each commit.
+#
+# Install once per clone:
+#   pip install pre-commit
+#   pre-commit install
+#
+# CI enforces the same hooks via .github/workflows/lint.yml, so a local
+# `git commit --no-verify` bypass is caught at PR time.
+
+repos:
+  - repo: local
+    hooks:
+      - id: lint-applicationset-templates
+        name: ArgoCD ApplicationSet goTemplate syntax
+        entry: scripts/lint-applicationset-templates.sh
+        language: script
+        pass_filenames: false
+        files: ^workload-bootstrap/templates/.*\.yaml$
