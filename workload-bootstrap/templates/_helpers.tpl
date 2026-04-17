@@ -167,7 +167,7 @@ Client GitOps override helpers (ADR 0008 Tier 3).
 {{- define "workload-bootstrap.gitopsSource" -}}
 {{- if and .Values.clientGitopsRepoUrl .Values.deploymentId }}
 - repoURL: {{ .Values.clientGitopsRepoUrl }}
-  targetRevision: {{ .Values.clientGitopsRepoVersion | default "HEAD" }}
+  targetRevision: {{ required "clientGitopsRepoVersion is required when clientGitopsRepoUrl is set" .Values.clientGitopsRepoVersion }}
   ref: gitops
 {{- end }}
 {{- end -}}

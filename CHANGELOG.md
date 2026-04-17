@@ -11,19 +11,57 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.24.1] — 2026-04-18
+
 ### Changed
 
-- Wire the new `lint-ignore-missing-inline` gate into pre-commit,
-  CI workflow, and `just lint`. The lint itself shipped in v0.23.1
-  but was not integrated into the automation layer until this entry.
-  No behavior change — the script was always runnable manually.
+- Replace `default "HEAD"` fallbacks on four client-gitops git
+  references with `required "..."` expressions. When a cluster sets
+  `clientGitopsRepoUrl` (and/or `deploymentId`) but does not set
+  `clientGitopsRepoVersion`, `helm template` now fails at render time
+  with a clear message — previously the chart silently fell back to
+  tracking `HEAD`, defeating reproducibility, audit, and blast-radius
+  control. Production deployments always pin the version and are
+  unaffected.
+
+  Affected templates:
+  - `workload-bootstrap/templates/_helpers.tpl` (`gitopsSource` helper)
+  - `workload-bootstrap/templates/client-kyverno-exceptions.yaml`
+  - `workload-bootstrap/templates/client-apps.yaml` (two occurrences)
+
+### Added
+
+- `scripts/lint-pin-git-refs.sh` — gate that flags
+  `default "(HEAD|main|master|latest)"` in templates under
+  `workload-bootstrap/templates/`. Wired into pre-commit, CI, and
+  `just lint`.
+
+### Documentation
+
+- `.agent-notes/2026-04-18-pin-git-refs.md` — audit note with full
+  Classification (Runtime law) per the ADR-0015 framework.
+
+## [0.24.0] — 2026-04-17
+
+### Added
+
+- Dynamic Alloy push URLs via bridge annotations.
+
+### Fixed
+
+- Alloy template trim marker + YAML escaping.
+
+### Changed
+
+- Wire the `lint-ignore-missing-inline` gate into pre-commit, CI
+  workflow, and `just lint`. The script shipped in v0.23.1; v0.24.0
+  is when it became an enforced gate.
 
 ### Documentation
 
 - `.agent-notes/2026-04-18-ignore-missing-values-helper-consolidation.md`
-  — audit note for the ignoreMissingValueFiles helper refactor that
-  shipped in v0.23.1. Documents the Classification (Convention /
-  uniformity-amplifier), verification performed, and residual risk.
+  — audit note for the ignoreMissingValueFiles helper refactor
+  (Classification: Convention / uniformity-amplifier).
 
 ## [0.23.1] — 2026-04-17
 

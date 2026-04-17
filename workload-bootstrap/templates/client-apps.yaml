@@ -37,7 +37,7 @@ spec:
                   {{- toYaml .Values.clusterSelector.matchLabels | nindent 18 }}
           - git:
               repoURL: {{ .Values.clientGitopsRepoUrl | quote }}
-              revision: {{ .Values.clientGitopsRepoVersion | default "HEAD" | quote }}
+              revision: {{ required "clientGitopsRepoVersion is required when clientGitopsRepoUrl is set" .Values.clientGitopsRepoVersion | quote }}
               directories:
                 - path: "platforms/{{ .Values.deploymentId }}/apps/*"
   template:
@@ -56,7 +56,7 @@ spec:
         #    which ArgoCD applies as raw manifest (the Application itself
         #    references its own Helm chart source).
         - repoURL: {{ .Values.clientGitopsRepoUrl | quote }}
-          targetRevision: {{ .Values.clientGitopsRepoVersion | default "HEAD" | quote }}
+          targetRevision: {{ required "clientGitopsRepoVersion is required when clientGitopsRepoUrl is set" .Values.clientGitopsRepoVersion | quote }}
           path: "{{`{{ .path.path }}`}}"
           directory:
             recurse: false

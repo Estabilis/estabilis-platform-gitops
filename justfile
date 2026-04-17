@@ -16,6 +16,7 @@ lint:
     ./scripts/lint-applicationset-templates.sh
     ./scripts/lint-helm-trim-markers.sh
     ./scripts/lint-ignore-missing-inline.sh
+    ./scripts/lint-pin-git-refs.sh
 
 # Roda todos os pre-commit hooks sobre TODOS os arquivos do repo
 # (útil antes de abrir PR para pegar drift histórico)

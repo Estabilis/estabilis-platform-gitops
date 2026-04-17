@@ -28,3 +28,9 @@ repos:
         language: script
         pass_filenames: false
         files: ^workload-bootstrap/templates/.*\.yaml$
+      - id: lint-pin-git-refs
+        name: Pin all git references (no HEAD/main/master fallbacks)
+        entry: scripts/lint-pin-git-refs.sh
+        language: script
+        pass_filenames: false
+        files: ^workload-bootstrap/templates/.*\.(yaml|tpl)$
