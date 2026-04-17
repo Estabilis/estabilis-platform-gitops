@@ -10,16 +10,17 @@ metadata:
     policies.kyverno.io/title: Generate PodDisruptionBudget
     policies.kyverno.io/description: >-
       Passively generates a PodDisruptionBudget for Deployments with
-      2+ replicas on admission. The generated PDB uses `maxUnavailable: 1`
-      plus `unhealthyPodEvictionPolicy: AlwaysAllow` so drains (node
-      maintenance, cluster autoscale, teardown) are never blocked by
-      replicas=1 or by NotReady/Terminating pods. The rule is non-invasive:
-      `synchronize: false` means if a chart ships its own PDB (or the
-      client deletes the generated one) Kyverno does NOT fight back;
-      `generateExisting: false` means pre-existing Deployments at
-      policy-install time are left alone. See Estabilis/estabilis-platform-gitops#2
-      for context and the ongoing tenancy design work in
-      Estabilis/estabilis-platform-tools#95.
+      2+ replicas on admission, but ONLY when the namespace has no
+      existing PDB (respects chart-managed PDBs). The generated PDB
+      uses `maxUnavailable: 1` plus `unhealthyPodEvictionPolicy:
+      AlwaysAllow` so drains are never blocked by NotReady/Terminating
+      pods. Non-invasive: `synchronize: false` means if the generated
+      PDB is deleted, Kyverno does NOT recreate it; `generateExisting:
+      false` means pre-existing Deployments at policy-install time are
+      left alone. The apiCall precondition queries the namespace for
+      PDBs before generating — charts that ship their own PDB (Kong,
+      Dapr, etc.) are skipped automatically.
+      See Estabilis/estabilis-platform-gitops#2.
 spec:
   background: true
   rules:
@@ -30,11 +31,20 @@ spec:
               kinds:
                 - Deployment
 {{ include "kyverno-policies.platform-exclude" . }}
+      context:
+        - name: pdbCount
+          apiCall:
+            method: GET
+            urlPath: "/apis/policy/v1/namespaces/{{`{{request.object.metadata.namespace}}`}}/poddisruptionbudgets"
+            jmesPath: "items | length(@)"
       preconditions:
         all:
           - key: "{{`{{ request.object.spec.replicas || '1' }}`}}"
             operator: GreaterThan
             value: "1"
+          - key: "{{`{{ pdbCount }}`}}"
+            operator: Equals
+            value: 0
       generate:
         # Passive mode: generate once at Deployment admission; do not sync
         # (if deleted, stay deleted — respects chart-owned PDBs) and do not
