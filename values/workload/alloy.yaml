@@ -4,15 +4,29 @@
 #   platforms/{deployment-id}/workload-overrides/alloy/values.yaml
 #
 # This file provides chart structure only (DaemonSet, resources, tolerations).
+# All values here must pass Kyverno policies (require-image-digest,
+# require-limits, require-run-as-nonroot, drop-all-capabilities,
+# require-seccomp-profile, no-privilege-escalation) and PodSecurity baseline.
 
 commonLabels:
   estabilis.io/component: alloy
 
-# Image pinned by digest per require-image-digest Kyverno policy.
-# Chart supports image.digest natively (overrides image.tag).
+# --- Images pinned by digest (require-image-digest policy) ---
 image:
   digest: "sha256:91b90e5d90f092affb2db04f973a59d15740e47a3b33932756fca6f53ffbdd39"
 
+configReloader:
+  image:
+    digest: "sha256:6bfe763f260e3dda51615147b1fb9e2cac3ca2c53ad9825c7b5a11935b328a8a"
+  resources:
+    requests:
+      cpu: 10m
+      memory: 50Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# --- Main Alloy container ---
 alloy:
   clustering:
     enabled: true
