@@ -30,7 +30,6 @@ spec:
             releaseName: "external-dns"
             valueFiles:
               - $values/values/workload/external-dns.yaml
-              {{- /* Provider-specific values file selected by bridge annotation */ -}}
               - $values/values/workload/external-dns-{{ `{{ index .metadata.annotations "estabilis.io/bridge.dns-provider" }}` }}.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "external-dns" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "external-dns" "root" $) | nindent 14 }}
