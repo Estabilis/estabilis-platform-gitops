@@ -21,3 +21,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run lint
         run: ./scripts/lint-helm-trim-markers.sh
+
+  ignore-missing-inline:
+    name: Inline ignoreMissingValueFiles must use helper
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run lint
+        run: ./scripts/lint-ignore-missing-inline.sh

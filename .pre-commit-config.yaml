@@ -22,3 +22,9 @@ repos:
         language: script
         pass_filenames: false
         files: ^workload-bootstrap/templates/.*\.yaml$
+      - id: lint-ignore-missing-inline
+        name: Inline ignoreMissingValueFiles must use helper
+        entry: scripts/lint-ignore-missing-inline.sh
+        language: script
+        pass_filenames: false
+        files: ^workload-bootstrap/templates/.*\.yaml$
