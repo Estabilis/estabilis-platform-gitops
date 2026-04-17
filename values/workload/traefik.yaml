@@ -66,18 +66,17 @@ tolerations:
     effect: "NoSchedule"
 
 securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   runAsNonRoot: true
   runAsUser: 65532
   runAsGroup: 65532
-
-podSecurityContext:
-  fsGroup: 65532
-
-containerSecurityContext:
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
   capabilities:
     drop: [ALL]
     add: [NET_BIND_SERVICE]
   seccompProfile:
     type: RuntimeDefault
+
+podSecurityContext:
+  fsGroup: 65532
+  runAsNonRoot: true
