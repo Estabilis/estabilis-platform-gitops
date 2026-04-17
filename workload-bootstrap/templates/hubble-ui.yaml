@@ -1,0 +1,70 @@
+{{- /*
+  Hubble UI for every workload cluster (ACNS only).
+
+  Deploys the Estabilis hubble-ui chart from the platform repo to visualize
+  Cilium network flows on the workload cluster. Hubble UI connects to the
+  local hubble-relay (installed by AKS ACNS) via mTLS — it cannot view
+  flows from other clusters, so each cluster needs its own instance.
+
+  Opt-in toggle: components.hubble-ui
+  Sync-wave 8 — after Cilium/ACNS components are running.
+
+  The chart lives in estabilis-platform (not gitops) because it's a
+  platform-level component that deploys into kube-system and requires
+  ACNS-specific cert mounts. platformVersion controls the chart version.
+*/ -}}
+{{- if index .Values.components "hubble-ui" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: hubble-ui
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "hubble-ui-{{ `{{ .name }}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "8"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{ .name }}` }}"
+    spec:
+      project: workload-baseline
+      sources:
+        - repoURL: https://github.com/Estabilis/estabilis-platform.git
+          targetRevision: {{ .Values.platformVersion | quote }}
+          path: core/components/hubble-ui
+          helm:
+            releaseName: "hubble-ui"
+            valueFiles:
+              - $values/core/components/hubble-ui/values.yaml
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "hubble-ui" "root" $) | nindent 14 }}
+            ignoreMissingValueFiles: true
+            parameters:
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        - repoURL: https://github.com/Estabilis/estabilis-platform.git
+          targetRevision: {{ .Values.platformVersion | quote }}
+          ref: values
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{ .server }}` }}"
+        namespace: "kube-system"
+      syncPolicy:
+        automated:
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - ServerSideApply=true
+{{- end }}

@@ -14,7 +14,7 @@
 # should pin to when reading $values. Kept in sync with the hub Application's
 # targetRevision so $values always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.20.7
+repoVersion: v0.21.0
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
@@ -87,6 +87,9 @@ components:
   alloy: true                # observability: unified collector (logs + metrics → hub Loki/Mimir)
   kube-state-metrics: true   # observability: Kubernetes object metrics (Deployment, Pod, Node state)
   node-exporter: true        # observability: node-level OS metrics (CPU, memory, disk, network)
+
+  # --- network observability (ACNS only) ---
+  hubble-ui: true            # ACNS: Cilium Hubble UI for network flow visualization
 
 # ---------------------------------------------------------------------------
 # Downstream override repo (per-client configuration)
