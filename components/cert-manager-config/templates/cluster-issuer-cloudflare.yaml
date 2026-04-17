@@ -22,7 +22,7 @@ metadata:
 spec:
   refreshInterval: 1h
   secretStoreRef:
-    name: cluster-secret-store
+    name: platform-secret-store
     kind: ClusterSecretStore
   target:
     name: cloudflare-api-token
