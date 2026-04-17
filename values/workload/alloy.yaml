@@ -16,14 +16,15 @@ image:
 alloy:
   clustering:
     enabled: true
-  mounts:
-    extra:
-      - name: tmp
-        mountPath: /tmp
+  # Alloy needs root + privileged to read /var/log/pods on the host.
+  # The chart's default securityContext has allowPrivilegeEscalation=false
+  # which conflicts with privileged=true — override the full block.
   securityContext:
     privileged: true
     runAsUser: 0
     runAsGroup: 0
+    allowPrivilegeEscalation: true
+    readOnlyRootFilesystem: false
   resources:
     requests:
       cpu: 50m
