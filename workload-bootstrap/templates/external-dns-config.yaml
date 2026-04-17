@@ -47,15 +47,15 @@ spec:
             ignoreMissingValueFiles: true
             parameters:
               - name: global.dnsProvider
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.dns-provider"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.dns-provider" }}` }}'
               - name: global.tenantId
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.tenant-id"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.tenant-id" }}` }}'
               - name: global.subscriptionId
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.subscription-id"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.subscription-id" }}` }}'
               - name: global.resourceGroup
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.resource-group"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.resource-group" }}` }}'
               - name: identity.externalDns.clientId
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.external-dns-client-id"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.external-dns-client-id" }}` }}'
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}

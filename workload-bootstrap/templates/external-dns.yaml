@@ -29,19 +29,19 @@ spec:
             valueFiles:
               - $values/values/workload/external-dns.yaml
               {{- /* Provider-specific values file selected by bridge annotation */ -}}
-              - $values/values/workload/external-dns-{{ `{{index .metadata.annotations "estabilis.io/bridge.dns-provider"}}` }}.yaml
+              - $values/values/workload/external-dns-{{ `{{ index .metadata.annotations "estabilis.io/bridge.dns-provider" }}` }}.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "external-dns" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "external-dns" "root" $) | nindent 14 }}
             ignoreMissingValueFiles: true
             parameters:
               - name: domainFilters[0]
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.domain"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.domain" }}` }}'
               - name: txtOwnerId
                 value: '{{ `{{name}}` }}'
               - name: serviceAccount.annotations.azure\.workload\.identity/client-id
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.external-dns-client-id"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.external-dns-client-id" }}` }}'
               - name: zoneIdFilters[0]
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.cloudflare-zone-id"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.cloudflare-zone-id" }}` }}'
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}

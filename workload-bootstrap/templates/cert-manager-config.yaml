@@ -58,17 +58,17 @@ spec:
               - name: global.environment
                 value: {{ .Values.global.environment | quote }}
               - name: global.dnsProvider
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.dns-provider"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.dns-provider" }}` }}'
               - name: global.letsencryptEmail
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.letsencrypt-email"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.letsencrypt-email" }}` }}'
               - name: global.tenantId
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.tenant-id"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.tenant-id" }}` }}'
               - name: global.subscriptionId
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.subscription-id"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.subscription-id" }}` }}'
               - name: global.resourceGroup
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.resource-group"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.resource-group" }}` }}'
               - name: identity.certManager.clientId
-                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.cert-manager-client-id"}}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.cert-manager-client-id" }}` }}'
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         # 2) This repo as $values — overlay source
         - repoURL: {{ .Values.repoURL | quote }}
