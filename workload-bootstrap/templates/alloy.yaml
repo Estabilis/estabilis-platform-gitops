@@ -50,10 +50,6 @@ spec:
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "alloy" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "alloy" "root" $) | nindent 14 }}
             ignoreMissingValueFiles: true
-            valuesObject:
-              alloy:
-                configMap:
-                  create: false
             parameters:
               - name: global.environment
                 value: {{ .Values.global.environment | quote }}
