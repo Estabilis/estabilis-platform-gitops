@@ -1,0 +1,57 @@
+# ArgoCD Image Updater — monitors container registries for new image tags
+# and updates ArgoCD Applications automatically.
+#
+# Runs in the argocd namespace alongside ArgoCD.
+#
+# Registry auth follows the platform ExternalSecrets pattern:
+#   Terraform stores credentials in Key Vault →
+#   ExternalSecret reads from KV via ClusterSecretStore →
+#   K8s Secret consumed by Image Updater
+#
+# The downstream configures registries + credentials in their override:
+#   platforms/{deployment-id}/overrides/argocd-image-updater/values.yaml
+
+commonLabels:
+  estabilis.io/component: argocd-image-updater
+
+replicaCount: 1
+
+image:
+  repository: quay.io/argoprojlabs/argocd-image-updater
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+config:
+  log.level: info
+  # Registries configured by downstream override — each client defines
+  # their own ACR/registry + credentials reference.
+  registries: []
+
+rbac:
+  enabled: true
+
+serviceAccount:
+  create: true
+
+tolerations:
+  - key: "kubernetes.azure.com/scalesetpriority"
+    operator: "Equal"
+    value: "spot"
+    effect: "NoSchedule"
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop: [ALL]
+  seccompProfile:
+    type: RuntimeDefault
