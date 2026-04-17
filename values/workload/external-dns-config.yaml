@@ -1,0 +1,3 @@
+# Workload-specific values for external-dns-config.
+# No overrides — base chart values are sufficient.
+# Provider-specific parameters come from bridge annotations.

@@ -1,0 +1,11 @@
+global:
+  provider: ""
+  dnsProvider: ""
+  tenantId: ""
+  subscriptionId: ""
+  resourceGroup: ""
+  cloudflareApiToken: ""
+
+identity:
+  externalDns:
+    clientId: ""

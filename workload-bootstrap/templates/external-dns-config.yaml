@@ -1,0 +1,78 @@
+{{- /*
+  external-dns-config for every workload cluster.
+
+  Renders the provider-specific Secret (Azure DNS json or Cloudflare
+  API token) consumed by external-dns. When dns_provider=cloudflare
+  and the token is not passed as a helm parameter (workload path), the
+  chart renders an ExternalSecret that reads the token from the
+  workload Key Vault via ClusterSecretStore.
+
+  Opt-in toggle: components.external-dns-config
+  Sync-wave 7 — after external-secrets (wave 5) so ClusterSecretStore
+  and ExternalSecret CRDs are available.
+*/ -}}
+{{- if index .Values.components "external-dns-config" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: external-dns-config
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "external-dns-config-{{ `{{name}}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "7"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+    spec:
+      project: workload-baseline
+      sources:
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          path: components/external-dns-config
+          helm:
+            releaseName: "external-dns-config"
+            valueFiles:
+              - $values/components/external-dns-config/values.yaml
+              - $values/values/workload/external-dns-config.yaml
+              {{- include "workload-bootstrap.overrideValueFile" (dict "component" "external-dns-config" "root" $) | nindent 14 }}
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "external-dns-config" "root" $) | nindent 14 }}
+            ignoreMissingValueFiles: true
+            parameters:
+              - name: global.dnsProvider
+                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.dns-provider"}}` }}'
+              - name: global.tenantId
+                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.tenant-id"}}` }}'
+              - name: global.subscriptionId
+                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.subscription-id"}}` }}'
+              - name: global.resourceGroup
+                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.resource-group"}}` }}'
+              - name: identity.externalDns.clientId
+                value: '{{ `{{index .metadata.annotations "estabilis.io/bridge.external-dns-client-id"}}` }}'
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+        {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{server}}` }}"
+        namespace: "external-dns"
+      syncPolicy:
+        {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}

@@ -1,0 +1,18 @@
+{{- $dnsProvider := .Values.global.dnsProvider | default .Values.global.provider -}}
+{{- if eq $dnsProvider "azure" }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: external-dns-azure-config
+  namespace: external-dns
+  {{- include "estabilis.metadata" . | nindent 2 }}
+type: Opaque
+stringData:
+  azure.json: |
+    {
+      "tenantId": {{ .Values.global.tenantId | quote }},
+      "subscriptionId": {{ .Values.global.subscriptionId | quote }},
+      "resourceGroup": {{ .Values.global.resourceGroup | quote }},
+      "useWorkloadIdentityExtension": true
+    }
+{{- end }}

@@ -1,0 +1,40 @@
+{{- $dnsProvider := .Values.global.dnsProvider | default .Values.global.provider -}}
+{{- if eq $dnsProvider "cloudflare" }}
+{{- if .Values.global.cloudflareApiToken }}
+{{- /* Hub path: token injected directly via helm parameter from
+       platform-infrastructure-sensitive Secret (managed by Terraform). */ -}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: external-dns-cloudflare-config
+  namespace: external-dns
+  {{- include "estabilis.metadata" . | nindent 2 }}
+type: Opaque
+stringData:
+  api-token: {{ .Values.global.cloudflareApiToken | quote }}
+{{- else }}
+{{- /* Workload path: token stored in the workload Key Vault by Terraform
+       (azurerm_key_vault_secret.cloudflare_api_token). Read at runtime by
+       ExternalSecrets via the workload's ClusterSecretStore. The token NEVER
+       flows through bridge annotations — ADR 0010 bridge is for identifiers
+       only, not secrets. */ -}}
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: external-dns-cloudflare-config
+  namespace: external-dns
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: cluster-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: external-dns-cloudflare-config
+    creationPolicy: Owner
+  data:
+    - secretKey: api-token
+      remoteRef:
+        key: cloudflare-api-token
+{{- end }}
+{{- end }}

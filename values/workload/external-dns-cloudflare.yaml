@@ -1,0 +1,16 @@
+# Cloudflare provider config for workload external-dns.
+# Loaded when estabilis.io/bridge.dns-provider=cloudflare.
+# Token comes from ExternalSecret (workload Key Vault), NOT helm parameter.
+
+provider:
+  name: cloudflare
+
+serviceAccount:
+  create: true
+
+env:
+  - name: CF_API_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: external-dns-cloudflare-config
+        key: api-token

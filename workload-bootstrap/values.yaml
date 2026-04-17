@@ -14,7 +14,7 @@
 # should pin to when reading $values. Kept in sync with the hub Application's
 # targetRevision so $values always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.18.1
+repoVersion: v0.19.0
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
@@ -80,6 +80,8 @@ components:
   cert-manager-config: true  # core: ClusterIssuers (Let's Encrypt via DNS-01)
   external-secrets: true     # core: secrets management via provider vault
   cluster-secret-store: true # core: ClusterSecretStore for external-secrets
+  external-dns: true         # core: automatic DNS record management (Azure DNS or Cloudflare)
+  external-dns-config: true  # core: provider-specific Secret for external-dns (Azure json or Cloudflare token via ESO)
 
   # --- observability ---
   kube-state-metrics: true   # observability: Kubernetes object metrics (Deployment, Pod, Node state)

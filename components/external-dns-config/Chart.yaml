@@ -1,0 +1,5 @@
+apiVersion: v2
+name: external-dns-config
+description: Provider-specific Secret for ExternalDNS (Azure DNS or Cloudflare)
+version: 0.1.0
+type: application
