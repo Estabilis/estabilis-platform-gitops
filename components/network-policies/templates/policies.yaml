@@ -332,7 +332,7 @@ spec:
 # =============================================================================
 # kube-state-metrics namespace
 # Needs broad egress: kubernetes API
-# Ingress: alloy scraping from grafana namespace
+# Ingress: alloy scraping from grafana or alloy namespace
 # =============================================================================
 {{- if and (index .Values.policies "kube-state-metrics").enabled (ne (index .Values.components "kube-state-metrics" | toString) "false") }}
 apiVersion: networking.k8s.io/v1
@@ -347,11 +347,15 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Alloy scraping metrics from grafana namespace
+    # Alloy scraping metrics (hub=grafana ns, workload=alloy ns)
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: grafana
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: alloy
   egress:
 {{ include "network-policies.dns-egress" . }}
     # All egress (kubernetes API)
@@ -359,9 +363,60 @@ spec:
 {{- end }}
 ---
 # =============================================================================
+# alloy namespace (workload only — hub Alloy lives in grafana ns)
+# Egress: DNS + K8s API + scrape targets + hub Loki/Mimir push (HTTPS)
+# Ingress: internal clustering
+# =============================================================================
+{{- if and (index .Values.policies "alloy").enabled (ne (index .Values.components "alloy" | toString) "false") }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-alloy
+  namespace: alloy
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Alloy clustering (internal)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: alloy
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # Kubernetes API (discovery.kubernetes, loki.source.kubernetes)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+    # Scrape kube-state-metrics (port 8080)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-state-metrics
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Scrape node-exporter (port 9100)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: node-exporter
+      ports:
+        - protocol: TCP
+          port: 9100
+    # All namespaces — annotation-discovered client pod scraping
+    - to:
+        - namespaceSelector: {}
+{{- end }}
+---
+# =============================================================================
 # node-exporter namespace
 # Egress: DNS only
-# Ingress: alloy scraping from grafana namespace
+# Ingress: alloy scraping from grafana or alloy namespace
 # =============================================================================
 {{- if and (index .Values.policies "node-exporter").enabled (ne (index .Values.components "node-exporter" | toString) "false") }}
 apiVersion: networking.k8s.io/v1
@@ -376,11 +431,15 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Alloy scraping metrics from grafana namespace
+    # Alloy scraping metrics (hub=grafana ns, workload=alloy ns)
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: grafana
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: alloy
   egress:
 {{ include "network-policies.dns-egress" . }}
 {{- end }}

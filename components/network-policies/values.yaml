@@ -26,6 +26,7 @@ components:
   velero: true
   opencost: true
   trivy: true
+  alloy: true
   kube-state-metrics: true
   node-exporter: true
   policy-reporter: true
@@ -52,6 +53,8 @@ policies:
   opencost:
     enabled: true
   trivy-system:
+    enabled: true
+  alloy:
     enabled: true
   kube-state-metrics:
     enabled: true
