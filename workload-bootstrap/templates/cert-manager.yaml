@@ -57,10 +57,16 @@ spec:
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "cert-manager" "root" $) | nindent 14 }}
             ignoreMissingValueFiles: true
             valuesObject:
-              {{- /* Scheduling (ADR 0012 — issue #97) */}}
+              {{- /* Scheduling (ADR 0012 — issue #97)
+                    cert-manager controller is top-level (no `controller:` key in chart);
+                    webhook/cainjector/startupapicheck are nested. */}}
+              {{- $cmMode := default "auto" (index .Values.scheduling "cert-manager") }}
+              {{- include "workload-bootstrap.schedulingValuesTopLevel" (dict
+                    "mode" $cmMode
+                 ) | nindent 14 }}
               {{- include "workload-bootstrap.schedulingValuesFor" (dict
-                    "mode" (default "auto" (index .Values.scheduling "cert-manager"))
-                    "paths" (list "controller" "webhook" "cainjector" "startupapicheck")
+                    "mode" $cmMode
+                    "paths" (list "webhook" "cainjector" "startupapicheck")
                  ) | nindent 14 }}
             parameters:
               - name: global.environment
