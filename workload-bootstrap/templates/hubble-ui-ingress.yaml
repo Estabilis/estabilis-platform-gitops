@@ -1,10 +1,9 @@
 {{- /*
   Hubble UI ingress for workload clusters (ADR 0014 exposure model).
 
-  Renders Ingress + Middleware + Certificate per enabled exposure profile.
-  Uses the same chart as the hub (core/components/hubble-ui-ingress from
-  estabilis-platform repo). Exposure config comes from client gitops
-  override: platforms/{deployment-id}/workload-overrides/hubble-ui-ingress/values.yaml
+  Exposure JSON comes from Terraform → bridge Secret → operator →
+  Cluster Secret annotation → ApplicationSet goTemplate. Same data
+  flow as the hub (Terraform is the single source of truth).
 
   Opt-in toggle: components.hubble-ui-ingress
   Sync-wave 9 — after Traefik (wave 7) so IngressClass + CRDs exist.
@@ -44,6 +43,9 @@ spec:
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "hubble-ui-ingress" "root" $) | nindent 14 }}
             ignoreMissingValueFiles: true
             parameters:
+              - name: exposuresJson
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.hubble-ui-exposures" }}` }}'
+                forceString: true
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         - repoURL: https://github.com/Estabilis/estabilis-platform.git
           targetRevision: {{ .Values.platformVersion | quote }}

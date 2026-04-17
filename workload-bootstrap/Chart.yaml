@@ -5,5 +5,5 @@ description: |
   workload cluster registered by the estabilis-workload-operator.
   Rendered by the hub's ArgoCD. See ADR 0001.
 type: application
-version: 0.22.0
-appVersion: "0.22.0"
+version: 0.22.1
+appVersion: "0.22.1"
