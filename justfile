@@ -11,9 +11,10 @@ install:
     pre-commit install
     @echo "pre-commit ativado. Hooks rodam automaticamente em cada commit."
 
-# Roda o lint dos templates de ApplicationSet manualmente
+# Roda todos os lints de template manualmente (ApplicationSet + trim markers)
 lint:
     ./scripts/lint-applicationset-templates.sh
+    ./scripts/lint-helm-trim-markers.sh
 
 # Roda todos os pre-commit hooks sobre TODOS os arquivos do repo
 # (útil antes de abrir PR para pegar drift histórico)

@@ -16,3 +16,9 @@ repos:
         language: script
         pass_filenames: false
         files: ^workload-bootstrap/templates/.*\.yaml$
+      - id: lint-helm-trim-markers
+        name: Helm trim-marker comments in YAML lists
+        entry: scripts/lint-helm-trim-markers.sh
+        language: script
+        pass_filenames: false
+        files: ^workload-bootstrap/templates/.*\.yaml$
