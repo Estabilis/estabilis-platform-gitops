@@ -56,7 +56,7 @@ spec:
               - $values/values/workload/resource-quotas.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "resource-quotas" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "resource-quotas" "root" $) | nindent 14 }}
-            ignoreMissingValueFiles: true
+            {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
             parameters:
               - name: global.environment
                 value: {{ .Values.global.environment | quote }}

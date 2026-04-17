@@ -55,7 +55,7 @@ spec:
               - $values/values/workload/cert-manager.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "cert-manager" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "cert-manager" "root" $) | nindent 14 }}
-            ignoreMissingValueFiles: true
+            {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
             valuesObject:
               {{- /* Scheduling (ADR 0012 — issue #97)
                     cert-manager controller is top-level (no `controller:` key in chart);

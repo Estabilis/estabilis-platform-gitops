@@ -46,7 +46,7 @@ spec:
               - $values/values/workload/external-dns-config.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "external-dns-config" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "external-dns-config" "root" $) | nindent 14 }}
-            ignoreMissingValueFiles: true
+            {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
             parameters:
               - name: global.dnsProvider
                 value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.dns-provider" }}` }}'

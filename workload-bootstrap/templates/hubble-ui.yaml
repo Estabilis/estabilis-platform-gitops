@@ -46,7 +46,7 @@ spec:
             valueFiles:
               - $values/core/components/hubble-ui/values.yaml
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "hubble-ui" "root" $) | nindent 14 }}
-            ignoreMissingValueFiles: true
+            {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
             parameters:
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         - repoURL: https://github.com/Estabilis/estabilis-platform.git

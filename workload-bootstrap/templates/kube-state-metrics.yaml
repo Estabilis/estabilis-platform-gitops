@@ -49,7 +49,7 @@ spec:
               - $values/values/workload/kube-state-metrics.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "kube-state-metrics" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "kube-state-metrics" "root" $) | nindent 14 }}
-            ignoreMissingValueFiles: true
+            {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
             valuesObject:
               {{- /* Scheduling (ADR 0012 — issue #97) */}}
               {{- include "workload-bootstrap.schedulingValuesTopLevel" (dict

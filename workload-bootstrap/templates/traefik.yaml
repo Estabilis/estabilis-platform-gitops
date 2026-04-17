@@ -42,7 +42,7 @@ spec:
               - $values/values/workload/traefik.yaml
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "traefik" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "traefik" "root" $) | nindent 14 }}
-            ignoreMissingValueFiles: true
+            {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
             parameters:
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         - repoURL: {{ .Values.repoURL | quote }}

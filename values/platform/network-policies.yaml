@@ -1,1 +1,7 @@
-# Platform overlay for network-policies (empty — platform uses base defaults)
+# Platform overlay for network-policies.
+# Hub Alloy lives in the grafana namespace (covered by allow-grafana).
+# The allow-alloy policy targets namespace "alloy" which only exists on
+# workload clusters — disable it on the hub.
+policies:
+  alloy:
+    enabled: false
