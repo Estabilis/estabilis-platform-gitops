@@ -50,15 +50,14 @@ spec:
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "alloy" "root" $) | nindent 14 }}
             {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
             parameters:
-              {{- /* Push URLs derived from bridge annotations — no hardcoded URLs */ -}}
               - name: alloy.extraEnv[0].name
                 value: LOKI_PUSH_URL
               - name: alloy.extraEnv[0].value
-                value: 'https://loki.{{ `{{ index .metadata.annotations "estabilis.io/bridge.hub-cluster-name" }}` }}.{{ `{{ index .metadata.annotations "estabilis.io/bridge.domain" }}` }}/loki/api/v1/push'
+                value: '{{ `{{ printf "https://loki.%s.%s/loki/api/v1/push" (index .metadata.annotations "estabilis.io/bridge.hub-cluster-name") (index .metadata.annotations "estabilis.io/bridge.domain") }}` }}'
               - name: alloy.extraEnv[1].name
                 value: MIMIR_PUSH_URL
               - name: alloy.extraEnv[1].value
-                value: 'https://mimir.{{ `{{ index .metadata.annotations "estabilis.io/bridge.hub-cluster-name" }}` }}.{{ `{{ index .metadata.annotations "estabilis.io/bridge.domain" }}` }}/api/v1/push'
+                value: '{{ `{{ printf "https://mimir.%s.%s/api/v1/push" (index .metadata.annotations "estabilis.io/bridge.hub-cluster-name") (index .metadata.annotations "estabilis.io/bridge.domain") }}` }}'
               - name: alloy.extraEnv[2].name
                 value: CLUSTER_NAME
               - name: alloy.extraEnv[2].value
