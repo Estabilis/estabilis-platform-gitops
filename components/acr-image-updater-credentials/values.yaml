@@ -1,0 +1,11 @@
+# ACR login server — injected by platform-root template from
+# global.sharedAcrLoginServer (Terraform → ConfigMap → helm parameter).
+acrLoginServer: ""
+
+# Key Vault secret name containing the ACR repository-scoped token password.
+# Created by the ACR shared downstream Terraform.
+kvSecretName: "acr-shared-token"
+
+# Username for the repository-scoped token.
+# Convention: same name as the token resource in Azure.
+acrTokenUsername: "acr-token"
