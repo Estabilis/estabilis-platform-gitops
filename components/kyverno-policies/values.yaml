@@ -68,6 +68,20 @@ policies:
     enabled: true
   inject_pss_labels:
     enabled: true
+    # Namespaces that receive pod-security.kubernetes.io/enforce=privileged
+    # (plus warn/audit=baseline). Platform-managed defaults — do not
+    # override from downstream; clients extending this list should use
+    # extraPrivilegedNamespaces instead (Helm merges scalars but REPLACES
+    # arrays, so splitting the list in two keeps the platform defaults
+    # intact regardless of client overrides).
+    privilegedNamespaces:
+      - grafana
+      - node-exporter
+      - trivy-system
+    # Client-extensible privileged namespaces. Default empty; downstream
+    # overrides append cluster-specific entries here
+    # (e.g. ado-build-agent, harbor, jfrog-platform).
+    extraPrivilegedNamespaces: []
   inject_security_context:
     enabled: true
   no_latest_tag:

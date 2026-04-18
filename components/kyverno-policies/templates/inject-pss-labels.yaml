@@ -11,7 +11,8 @@ metadata:
     policies.kyverno.io/description: >-
       Injects Pod Security Standards (PSS) labels on namespaces.
       Client namespaces (app-*) get enforce=restricted.
-      Privileged namespaces (node-exporter, trivy-system) get enforce=privileged.
+      Namespaces listed in .Values.policies.inject_pss_labels.privilegedNamespaces
+      and .extraPrivilegedNamespaces get enforce=privileged.
       All other platform namespaces get enforce=baseline with warn/audit=restricted.
 spec:
   background: true
@@ -41,9 +42,9 @@ spec:
               kinds:
                 - Namespace
               names:
-                - grafana
-                - node-exporter
-                - trivy-system
+{{- range (concat (default (list) .Values.policies.inject_pss_labels.privilegedNamespaces) (default (list) .Values.policies.inject_pss_labels.extraPrivilegedNamespaces)) }}
+                - {{ . }}
+{{- end }}
       mutate:
         patchStrategicMerge:
           metadata:
@@ -65,8 +66,9 @@ spec:
           - resources:
               names:
                 - "app-*"
-                - node-exporter
-                - trivy-system
+{{- range (concat (default (list) .Values.policies.inject_pss_labels.privilegedNamespaces) (default (list) .Values.policies.inject_pss_labels.extraPrivilegedNamespaces)) }}
+                - {{ . }}
+{{- end }}
           - resources:
               names:
 {{ include "kyverno-policies.excluded-namespace-list" . }}
