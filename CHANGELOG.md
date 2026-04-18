@@ -11,6 +11,60 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-04-18
+
+### Added
+
+- `components/kyverno-policies` — `policies.inject_pss_labels.privilegedNamespaces`
+  and `.extraPrivilegedNamespaces` values. Platform-managed defaults
+  (`grafana`, `node-exporter`, `trivy-system`) live under
+  `privilegedNamespaces`; downstream overrides append cluster-specific
+  entries via `extraPrivilegedNamespaces` (e.g. `ado-build-agent`,
+  `harbor`, `jfrog-platform`). Helm replaces arrays on merge, so the
+  two-key split keeps platform defaults intact regardless of client
+  overrides.
+
+  The `inject-pss-privileged` rule now iterates the concatenated list,
+  and `inject-pss-baseline-platform` excludes the same list so the two
+  mutation rules never contend for the same namespace.
+
+  Motivation: BuildKit rootless (and similar privileged sidecars)
+  require `seccomp: Unconfined`, which violates PSS `baseline` admission.
+  Previously the privileged list was hardcoded in the template, forcing
+  any new privileged namespace to go through a platform bump.
+
+### Component chart versions
+
+- `components/kyverno-policies`: `0.2.0` → `0.3.0`
+
+### Notes
+
+- Version metadata skips from `0.24.1` directly to `0.26.0` to re-align
+  with the `v0.25.0` git tag, which was pushed without bumping
+  `workload-bootstrap/Chart.yaml` or `workload-bootstrap/values.yaml`
+  (see `[0.25.0]` entry below, added retroactively).
+
+## [0.25.0] — 2026-04-17
+
+> Retroactive entry — the `v0.25.0` tag was pushed without bumping
+> `workload-bootstrap/Chart.yaml` or `workload-bootstrap/values.yaml`
+> at the time. Documented here to keep the changelog consistent with
+> the tag history. `v0.26.0` fixes the metadata drift.
+
+### Added
+
+- `components/argocd-image-updater-base` — base ArgoCD Image Updater
+  configuration (registry list sourced from `global.sharedAcrLoginServer`).
+- `components/acr-image-updater-credentials` — ExternalSecret that
+  mounts the ACR repository-scoped token into the `argocd-image-updater`
+  namespace.
+
+### Fixed
+
+- Remove `estabilis.metadata` from the standalone
+  `acr-image-updater-credentials` component rendering path (chart can
+  now `helm template` without a parent context).
+
 ## [0.24.1] — 2026-04-18
 
 ### Changed
