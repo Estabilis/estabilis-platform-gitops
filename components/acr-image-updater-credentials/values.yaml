@@ -9,3 +9,9 @@ kvSecretName: "acr-shared-token"
 # Username for the repository-scoped token.
 # Convention: same name as the token resource in Azure.
 acrTokenUsername: "acr-token"
+
+# ArgoCD repo-creds Secret name — consumed by `argocd` repo-server to
+# pull OCI Helm charts from this same ACR. Always rendered when
+# `acrLoginServer` is set; harmless if no Application pulls charts.
+repoCreds:
+  secretName: "cred-acr-shared-charts"

@@ -11,6 +11,39 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-04-21
+
+### Added — `acr-image-updater-credentials` emits ArgoCD repo-creds
+
+The `acr-image-updater-credentials` component (v0.1.0 → v0.2.0) now
+creates **two** ExternalSecrets from the same Key Vault token:
+
+1. `acr-image-updater-credentials` (existing) — docker config for
+   ArgoCD Image Updater's registry pulls.
+2. `cred-acr-shared-charts` (new) — ArgoCD repo-creds so the
+   **repo-server** can pull OCI Helm charts from the same ACR.
+
+Rationale: deployments that publish Helm charts to the same shared
+ACR that Image Updater watches (e.g., Transfero HML publishing
+`common-app` to `acrtransferosharedhml`) need ArgoCD to authenticate
+OCI chart pulls. Without this second Secret, chart pulls fail with
+`401 unauthorized` (observed 2026-04-21 on partner-service-hml).
+
+Always rendered alongside (1) when `acrLoginServer` is set — harmless
+when no Application pulls charts from this host. Opt-out is not
+exposed: the incremental runtime cost (one K8s Secret, same KV lookup)
+does not justify the configuration surface.
+
+No consumer-side change required. Deployments with `sharedAcrLoginServer`
+set in their platform-root override get the new Secret automatically
+on next sync.
+
+Paired with:
+- `estabilis-platform` no change (template passes `acrLoginServer`,
+  which is already wired).
+- Downstream `transfero-platform-azure-eastus2-hml` bumps
+  `platformGitopsVersion` to v0.27.0 — propagates the new Secret.
+
 ## [0.26.1] — 2026-04-21
 
 ### Fixed — `argocd-image-updater` values schema reverted to v0.x keys
