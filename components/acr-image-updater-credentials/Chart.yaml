@@ -7,5 +7,5 @@ description: |
     2. (Opt-in via repoCreds.enabled) An ArgoCD repo-creds Secret so the
        ArgoCD repo-server can pull OCI Helm charts from the same registry.
 type: application
-version: 0.2.1
-appVersion: "0.2.1"
+version: 0.2.2
+appVersion: "0.2.2"
