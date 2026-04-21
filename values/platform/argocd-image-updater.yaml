@@ -29,7 +29,10 @@ resources:
     memory: 256Mi
 
 config:
-  log.level: info
+  # Chart v0.x key. In v1.x this was renamed to `log.level` (dotted).
+  # We're pinned to chart 0.14.0 (app v0.17.0, annotation-based track)
+  # — see platform-root/templates/argocd-image-updater.yaml for rationale.
+  logLevel: info
   # Registries configured by downstream override — each client defines
   # their own ACR/registry + credentials reference.
   registries: []
