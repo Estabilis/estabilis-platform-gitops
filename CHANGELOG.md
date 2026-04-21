@@ -11,6 +11,22 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.26.1] — 2026-04-21
+
+### Fixed — `argocd-image-updater` values schema reverted to v0.x keys
+
+`values/platform/argocd-image-updater.yaml` used `config.log.level`
+(dotted key, v1.x chart schema). Paired commit in `estabilis-platform`
+v0.12.2 pins the chart to `0.14.0` (app v0.17.0, annotation-based),
+which expects `config.logLevel` (camelCase). Reverted the key.
+
+No behavior change on a running cluster — the ConfigMap values are
+equivalent at runtime.
+
+Paired change with **estabilis-platform v0.12.2**. See
+`estabilis-platform-tools/docs/adr/0019-argocd-image-updater-v0x-correction.md`
+for the full postmortem.
+
 ## [0.26.0] — 2026-04-18
 
 ### Added
