@@ -7,8 +7,13 @@ acrLoginServer: ""
 kvSecretName: "acr-shared-token"
 
 # Username for the repository-scoped token.
-# Convention: same name as the token resource in Azure.
-acrTokenUsername: "acr-token"
+# Convention: the ACR `token` resource name in Azure. The token resource
+# in `transfero-acr-shared-hml` Terraform is created with
+# `name = "image-updater"` — ACR login expects that name as the username
+# (verified 2026-04-21: username `acr-token` returns 401, `image-updater`
+# authenticates). Downstream overrides this only if a different token
+# resource is used.
+acrTokenUsername: "image-updater"
 
 # ArgoCD repo-creds Secret name — consumed by `argocd` repo-server to
 # pull OCI Helm charts from this same ACR. Always rendered when
