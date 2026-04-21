@@ -11,6 +11,29 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.27.2] — 2026-04-21
+
+### Fixed — `acr-image-updater-credentials` dockerconfig uses `auth` field
+
+The docker-config Secret was generated with `username` + `password` fields:
+
+```json
+{"auths":{"<host>":{"username":"<u>","password":"<p>"}}}
+```
+
+Image Updater v0.17 expects the `auth` field (base64 of `u:p`) and errors:
+
+```
+Could not set registry endpoint credentials: invalid auth token for
+registry entry <host> ('auth' should be string')
+```
+
+Switched the ExternalSecret template to compute `auth` at render time via
+sprig `b64enc`. The ArgoCD repo-server credential Secret already works
+with `username` + `password` fields and is unchanged.
+
+Component v0.2.1 → v0.2.2 (patch).
+
 ## [0.27.1] — 2026-04-21
 
 ### Fixed — `acrTokenUsername` default now matches Terraform token name
