@@ -11,6 +11,30 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.27.1] — 2026-04-21
+
+### Fixed — `acrTokenUsername` default now matches Terraform token name
+
+`components/acr-image-updater-credentials/values.yaml` defaulted
+`acrTokenUsername` to `"acr-token"` — but the token resource created
+by `transfero-acr-shared-hml` Terraform is `name = "image-updater"`.
+ACR login uses the token *resource name* as the username; the old
+default returned `401 unauthorized`.
+
+Verified 2026-04-21 from inside `argocd-repo-server`:
+- `helm registry login -u acr-token` → `401`
+- `helm registry login -u image-updater` → `Login Succeeded` + chart
+  pulled.
+
+This bug was invisible until v0.27.0 began exercising the credential
+(the repo-server only calls it when an Application pulls from the
+shared ACR). Image Updater has the same bug in its docker-config
+Secret but was never observed failing because no image pull had
+been attempted since the v0.x restore (ADR 0019).
+
+Patch-level bump; no API surface change. Downstream deployments pick
+up the fix automatically after `terraform apply` + promote.
+
 ## [0.27.0] — 2026-04-21
 
 ### Added — `acr-image-updater-credentials` emits ArgoCD repo-creds
