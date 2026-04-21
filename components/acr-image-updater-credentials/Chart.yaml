@@ -1,8 +1,11 @@
 apiVersion: v2
 name: acr-image-updater-credentials
 description: |
-  ExternalSecret that reads ACR repository-scoped token from Key Vault
-  and creates a docker config JSON Secret for ArgoCD Image Updater.
+  ExternalSecrets that read an ACR repository-scoped token from Key Vault
+  and create:
+    1. A docker-config JSON Secret for ArgoCD Image Updater.
+    2. (Opt-in via repoCreds.enabled) An ArgoCD repo-creds Secret so the
+       ArgoCD repo-server can pull OCI Helm charts from the same registry.
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.2.0
+appVersion: "0.2.0"
