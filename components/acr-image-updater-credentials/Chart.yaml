@@ -1,17 +1,21 @@
 apiVersion: v2
 name: acr-image-updater-credentials
 description: |
-  ExternalSecrets that read ACR credentials from Key Vault and render
-  two Kubernetes Secrets:
-    1. A docker-config JSON Secret for ArgoCD Image Updater.
-    2. An ArgoCD repo-creds Secret so the repo-server can pull OCI
-       Helm charts from the same registry.
+  ExternalSecrets that read ACR + git credentials from Key Vault and
+  render up to three Kubernetes Secrets:
+    1. Docker-config for ArgoCD Image Updater registry auth.
+    2. ArgoCD repo-creds for repo-server OCI Helm pulls.
+    3. (Opt-in) Git PAT credentials for Image Updater write-back push.
 
-  Supports two credential modes:
+  ACR credential source switches on `credentialMode`:
     - sp (default) — Azure AD Service Principal with AcrPull RBAC.
       Preferred: tag listing works (AAD auth skips scope-map scope
       negotiation).
     - token — legacy repository-scoped token. Kept for rollback.
+
+  Git write-back credentials (opt-in via `gitCreds.enabled`) are an
+  independent HTTPS Basic credential Secret. WIF migration tracked
+  by estabilis-platform-tools#160.
 type: application
-version: 0.3.0
-appVersion: "0.3.0"
+version: 0.4.0
+appVersion: "0.4.0"

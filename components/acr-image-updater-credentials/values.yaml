@@ -42,3 +42,23 @@ token:
 # `acrLoginServer` is set; harmless if no Application pulls charts.
 repoCreds:
   secretName: cred-acr-shared-charts
+
+# Image Updater — Git write-back credentials (HTTPS Basic). Separate
+# KV secret because git push is unrelated to ACR pull. Consumer
+# Application references the rendered Secret via:
+#   argocd-image-updater.argoproj.io/write-back-method: git:secret:argocd/<secretName>
+#
+# Enabled by default — a deployment that runs Image Updater typically
+# also needs write-back to the gitops repo. Opt out (`enabled: false`)
+# for deployments that only read from the ACR and don't push back,
+# OR if the KV secret `image-updater-git-pat` is not populated. WIF
+# migration follow-up: estabilis-platform-tools#160.
+gitCreds:
+  enabled: true
+  secretName: image-updater-git-creds
+  # KV secret name created by `transfero-acr-shared-hml` Terraform
+  # (image_updater_git_pat variable).
+  kvSecretName: image-updater-git-pat
+  # PAT doesn't care about username — ADO accepts any non-empty value.
+  # Convention: use the PAT owner or a recognizable identity.
+  username: image-updater
