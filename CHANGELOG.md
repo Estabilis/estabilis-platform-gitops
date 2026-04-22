@@ -11,6 +11,19 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.30.1] — 2026-04-22
+
+### Added — `values/platform/acr-image-updater-credentials.yaml` overlay
+
+Empty platform-level overlay file for `acr-image-updater-credentials`.
+Referenced by the Application template in estabilis-platform v0.12.4,
+which adds `valueFiles` to this Application so per-cluster overrides
+(e.g. `secretStoreName: shared-infra-secret-store`) can be declared
+without upstream changes.
+
+Patch bump: adds a new overlay file; no API change to the component
+chart itself. Lockstep across workload-bootstrap Chart.yaml + values.yaml.
+
 ## [0.30.0] — 2026-04-22
 
 ### Added — multi-store `ClusterSecretStore` + parametrized `secretStoreName`
