@@ -11,6 +11,36 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.32.0] — 2026-04-22
+
+### Fixed — `inject-pss-labels` infinite drift (Kyverno CRD defaults)
+
+The `kyverno-policies/templates/inject-pss-labels.yaml` template
+omitted three fields that Kyverno's CRD defaults populate on admission:
+
+- `admission: true`
+- `emitWarning: false`
+- `validationFailureAction: Audit`
+
+When ArgoCD applied the git manifest without these fields, Kyverno
+admitted the resource and added them; ArgoCD then compared git
+(3 fields missing) vs live (3 fields present) → infinite
+`OutOfSync Healthy`. The policy functioned correctly throughout
+— only the reconciliation status was broken.
+
+Declaring the defaults explicitly in the template matches the
+admitted form, closing the drift. Behavior unchanged.
+
+Observed on Transfero HML 2026-04-22 after ADR 0020 migration
+triggered a mass re-render: `kyverno-policies-transfero-workload-hml-eastus2`
+reported OutOfSync with one failing resource (ClusterPolicy/inject-pss-labels).
+
+### Version
+
+`v0.31.0 → v0.32.0`. Minor bump — no behavior change, but consumer
+clusters render a slightly different (now fully-declared) manifest,
+which ArgoCD will apply on next reconcile.
+
 ## [0.31.0] — 2026-04-22
 
 ### Added — `clientGitopsRepoRevision` and `configRepoRevision` values

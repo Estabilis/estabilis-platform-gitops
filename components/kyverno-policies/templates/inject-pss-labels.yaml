@@ -15,6 +15,15 @@ metadata:
       and .extraPrivilegedNamespaces get enforce=privileged.
       All other platform namespaces get enforce=baseline with warn/audit=restricted.
 spec:
+  # Declare Kyverno CRD defaults explicitly. When omitted, Kyverno
+  # populates these on admission with defaults — ArgoCD then sees
+  # field-level diff between git (missing) and live (populated) →
+  # infinite OutOfSync. Declaring matches the admitted form and
+  # eliminates the drift. Functional behavior unchanged (these ARE
+  # the CRD defaults).
+  admission: true
+  emitWarning: false
+  validationFailureAction: Audit
   background: true
   rules:
     - name: inject-pss-restricted-client
