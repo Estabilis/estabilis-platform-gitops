@@ -1,11 +1,17 @@
 apiVersion: v2
 name: acr-image-updater-credentials
 description: |
-  ExternalSecrets that read an ACR repository-scoped token from Key Vault
-  and create:
+  ExternalSecrets that read ACR credentials from Key Vault and render
+  two Kubernetes Secrets:
     1. A docker-config JSON Secret for ArgoCD Image Updater.
-    2. (Opt-in via repoCreds.enabled) An ArgoCD repo-creds Secret so the
-       ArgoCD repo-server can pull OCI Helm charts from the same registry.
+    2. An ArgoCD repo-creds Secret so the repo-server can pull OCI
+       Helm charts from the same registry.
+
+  Supports two credential modes:
+    - sp (default) — Azure AD Service Principal with AcrPull RBAC.
+      Preferred: tag listing works (AAD auth skips scope-map scope
+      negotiation).
+    - token — legacy repository-scoped token. Kept for rollback.
 type: application
-version: 0.2.2
-appVersion: "0.2.2"
+version: 0.3.0
+appVersion: "0.3.0"

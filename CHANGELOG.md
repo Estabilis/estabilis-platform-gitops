@@ -11,6 +11,32 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-04-21
+
+### Changed — `acr-image-updater-credentials` credential mode defaults to SP
+
+The component now supports two credential modes for the shared ACR:
+
+- **`sp` (default)** — Azure AD Service Principal with `AcrPull` RBAC.
+  ExternalSecret reads `(clientId, clientSecret)` from two KV secrets
+  and renders both the docker-config (`auth: base64(clientId:clientSecret)`)
+  and the repo-creds Secret (`username: clientId` + `password: clientSecret`).
+- **`token` (legacy)** — scope-map token + fixed username. Retained for
+  rollback; NOT recommended because ArgoCD Image Updater asks for the
+  standard Docker Registry `:pull` scope which maps only to `content/read`
+  under ACR scope-maps. Listing tags (`/v2/<repo>/tags/list`) needs
+  `metadata/read`, so the legacy path returns 401 on tag listing even
+  when the scope-map grants both actions.
+
+The SP path sidesteps the scope issue entirely: ACR resolves the AAD
+identity's RBAC role and issues access tokens covering the full pull
+surface without client-side scope negotiation.
+
+Requires the paired Terraform change in `transfero-acr-shared-hml`
+(new `image_updater_sp_enabled` variable, creates the SP + RBAC +
+KV secrets). See ADR follow-up / commit message in that repo for
+details.
+
 ## [0.27.2] — 2026-04-21
 
 ### Fixed — `acr-image-updater-credentials` dockerconfig uses `auth` field
