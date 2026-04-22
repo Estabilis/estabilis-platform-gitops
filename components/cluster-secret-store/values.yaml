@@ -1,3 +1,34 @@
-# Values injected via ArgoCD helm.parameters from platform-root
+# cluster-secret-store — ExternalSecrets ClusterSecretStore for Azure Key Vault.
+#
+# Two modes:
+#
+# 1) Single-store (default): top-level `vaultUrl` + `tenantId` produce
+#    one ClusterSecretStore named `platform-secret-store`. Backward-
+#    compatible with every version before multi-store support.
+#
+# 2) Multi-store: set `stores` to a non-empty list and each entry
+#    produces one ClusterSecretStore. Use this when the cluster needs
+#    to read secrets from more than one Key Vault (e.g. platform KV +
+#    shared-infra KV owned by a different module). The external-
+#    secrets MI must have `Key Vault Secrets User` on every vault
+#    listed here.
+#
+# When `stores` is non-empty, the top-level `vaultUrl` is ignored
+# (only `tenantId` stays as a fallback for entries that omit it).
+
 vaultUrl: ""
 tenantId: ""
+
+# Multi-store list. Each entry:
+#   - name: ClusterSecretStore resource name (must be unique cluster-wide)
+#   - vaultUrl: https://<kvname>.vault.azure.net/
+#   - tenantId: (optional) falls back to top-level `tenantId`
+#
+# Example:
+#
+# stores:
+#   - name: platform-secret-store
+#     vaultUrl: https://kv-transfero-hml-lmj060.vault.azure.net/
+#   - name: shared-infra-secret-store
+#     vaultUrl: https://kv-transfero-shared-infra-hml-xxxxx.vault.azure.net/
+stores: []

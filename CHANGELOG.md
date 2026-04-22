@@ -11,6 +11,71 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.30.0] — 2026-04-22
+
+### Added — multi-store `ClusterSecretStore` + parametrized `secretStoreName`
+
+Two small but related additions that enable a cluster to read secrets
+from more than one Azure Key Vault, eliminating the need for a
+single-KV coupling between unrelated Terraform modules.
+
+**`components/cluster-secret-store`** — new `stores` list value.
+
+When `stores` is non-empty, the component renders one
+`ClusterSecretStore` per entry instead of the single hardcoded
+`platform-secret-store`. Each entry has its own `name` +
+`vaultUrl` + (optional) `tenantId`. When `stores` is empty
+(default), the legacy single-store behavior is preserved exactly
+— `vaultUrl` + `tenantId` at the top level produce the
+`platform-secret-store` used by every existing consumer.
+
+**`components/acr-image-updater-credentials`** — new
+`secretStoreName` value.
+
+Replaces the hardcoded `name: platform-secret-store` in three
+template locations (`external-secret.yaml` ×2,
+`git-creds-external-secret.yaml` ×1) with
+`{{ .Values.secretStoreName | default "platform-secret-store" }}`.
+Default preserves prior behavior; override when the 4 consumed KV
+secrets (`acr-shared-sp-client-id`, `acr-shared-sp-client-secret`,
+`acr-shared-token`, `image-updater-git-pat`) live in a separate
+Key Vault (e.g. a shared-infra KV owned by its own Terraform
+module).
+
+### Why
+
+Before this release, any code that stored secrets the cluster had
+to read was forced to write to the platform-owned KV — the only
+vault bound to the `external-secrets` managed identity in a single
+`ClusterSecretStore`. This created cross-module ownership coupling
+(observed in `transfero-acr-shared-hml`, which wrote 4 secrets
+into the platform KV `kv-transfero-hml-lmj060` simply because the
+cluster had no other way to read them).
+
+With multi-store + `secretStoreName`, a downstream module can own
+its own KV, provision a second `ClusterSecretStore` pointing at
+that KV, and have `acr-image-updater-credentials` read through it
+— without any platform code change. Companion PR in
+`estabilis-platform` v0.12.3 exposes the MI principal ID so the
+downstream module can grant `Key Vault Secrets User` on its own
+vault without duplicating the MI.
+
+### Compatibility
+
+- 100% backward compatible. Every existing consumer continues to
+  render identical YAML: `stores: []` falls back to single-store,
+  omitted `secretStoreName` defaults to `platform-secret-store`.
+- No template API breaks; no value renamed or removed.
+
+### Upgrade notes
+
+None required. The new capabilities activate only when the
+operator explicitly sets `stores` and/or `secretStoreName`.
+
+Companion repo bump: `estabilis-platform` v0.12.3 adds the
+`external_secrets_principal_id` output that shared-infra modules
+consume when wiring role assignments on their own KVs.
+
 ## [0.29.0] — 2026-04-22
 
 ### Added — `acr-image-updater-credentials` emits git write-back PAT Secret

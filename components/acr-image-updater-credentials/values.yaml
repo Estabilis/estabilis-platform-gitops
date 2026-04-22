@@ -2,6 +2,20 @@
 # global.sharedAcrLoginServer (Terraform → ConfigMap → helm parameter).
 acrLoginServer: ""
 
+# Name of the ClusterSecretStore this component's ExternalSecrets read
+# from. Default `platform-secret-store` matches the single-store form
+# provisioned by `components/cluster-secret-store` (legacy mode), so
+# existing deployments continue to work unchanged.
+#
+# Override when the 4 KV secrets this component consumes
+# (`acr-shared-sp-client-id`, `acr-shared-sp-client-secret`,
+# `acr-shared-token`, and `image-updater-git-pat`) live in a Key Vault
+# distinct from the platform KV. The target store must exist in the
+# cluster (provision via `components/cluster-secret-store` multi-store
+# mode) and the external-secrets MI must have `Key Vault Secrets User`
+# on the backing Key Vault.
+secretStoreName: platform-secret-store
+
 # -----------------------------------------------------------------------------
 # Credential source — two modes
 # -----------------------------------------------------------------------------
