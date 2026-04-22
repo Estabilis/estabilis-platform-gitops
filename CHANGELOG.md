@@ -11,6 +11,36 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.29.0] — 2026-04-22
+
+### Added — `acr-image-updater-credentials` emits git write-back PAT Secret
+
+Image Updater v0.x cannot push git write-back commits via AAD
+authentication — only via HTTPS Basic (username:password). Add a
+third ExternalSecret to the component that reads a PAT from Key
+Vault (`image-updater-git-pat`) and produces an Opaque Secret
+readable by Image Updater via `git:secret:argocd/<name>`.
+
+- `templates/git-creds-external-secret.yaml` — new, gated by
+  `gitCreds.enabled` (defaults to `true` — Image Updater always needs
+  write-back for this component to be useful).
+- `values.yaml` — new `gitCreds.*` section.
+- Component chart `0.3.0` → `0.4.0` (MINOR — new feature, default-on).
+
+Paired Terraform: `transfero-acr-shared-hml` gained `image_updater_git_pat`
+variable (sensitive) + `azurerm_key_vault_secret.image_updater_git_pat`
+resource.
+
+Consumer Application annotation (set by app author, not this chart):
+
+```yaml
+argocd-image-updater.argoproj.io/write-back-method: git:secret:argocd/image-updater-git-creds
+argocd-image-updater.argoproj.io/git-repository: https://dev.azure.com/.../transfero-gitops
+```
+
+WIF migration (replaces PAT) tracked by
+[estabilis-platform-tools#160](https://github.com/Estabilis/estabilis-platform-tools/issues/160).
+
 ## [0.28.0] — 2026-04-21
 
 ### Changed — `acr-image-updater-credentials` credential mode defaults to SP
