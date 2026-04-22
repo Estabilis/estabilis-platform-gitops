@@ -2,21 +2,43 @@
 # global.sharedAcrLoginServer (Terraform → ConfigMap → helm parameter).
 acrLoginServer: ""
 
-# Key Vault secret name containing the ACR repository-scoped token password.
-# Created by the ACR shared downstream Terraform.
-kvSecretName: "acr-shared-token"
+# -----------------------------------------------------------------------------
+# Credential source — two modes
+# -----------------------------------------------------------------------------
+# The component supports either:
+#
+# 1) Azure AD Service Principal (preferred) — `credentialMode: sp`
+#    Reads two KV secrets (client_id, client_secret). The SP has `AcrPull`
+#    RBAC role on the registry. ACR resolves the AAD identity and issues
+#    access tokens covering the full pull surface (content/read AND
+#    metadata/read) in a single call. Tag listing (`/v2/<repo>/tags/list`)
+#    works because the AAD path doesn't rely on the client requesting
+#    non-standard scopes — it uses Azure RBAC directly.
+#
+# 2) Repository-scoped token (legacy) — `credentialMode: token`
+#    Reads ONE KV secret (the token password) and pairs it with a fixed
+#    username. ACR scope-map tokens grant actions matching the exact
+#    scope requested; Image Updater asks `:pull` and receives a token
+#    with only `content/read`, so `tags/list` returns 401 because listing
+#    tags requires `metadata/read`. Kept as a rollback path.
+#
+# Defaults to `sp` because tag listing must work for Image Updater.
 
-# Username for the repository-scoped token.
-# Convention: the ACR `token` resource name in Azure. The token resource
-# in `transfero-acr-shared-hml` Terraform is created with
-# `name = "image-updater"` — ACR login expects that name as the username
-# (verified 2026-04-21: username `acr-token` returns 401, `image-updater`
-# authenticates). Downstream overrides this only if a different token
-# resource is used.
-acrTokenUsername: "image-updater"
+credentialMode: sp
+
+# Service Principal mode — two KV secrets populated by the
+# `transfero-acr-shared-hml` Terraform when `image_updater_sp_enabled = true`.
+sp:
+  kvClientIdSecret: acr-shared-sp-client-id
+  kvClientSecretSecret: acr-shared-sp-client-secret
+
+# Token mode — legacy path, kept for rollback.
+token:
+  kvSecretName: acr-shared-token
+  username: image-updater
 
 # ArgoCD repo-creds Secret name — consumed by `argocd` repo-server to
 # pull OCI Helm charts from this same ACR. Always rendered when
 # `acrLoginServer` is set; harmless if no Application pulls charts.
 repoCreds:
-  secretName: "cred-acr-shared-charts"
+  secretName: cred-acr-shared-charts
