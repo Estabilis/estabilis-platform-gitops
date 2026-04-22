@@ -41,7 +41,7 @@ spec:
       project: workload-baseline
       source:
         repoURL: {{ .Values.clientGitopsRepoUrl | quote }}
-        targetRevision: {{ required "clientGitopsRepoVersion is required when clientGitopsRepoUrl is set" .Values.clientGitopsRepoVersion | quote }}
+        targetRevision: {{ include "workload-bootstrap.clientGitopsRefRequired" . | quote }}
         path: "platforms/{{ .Values.deploymentId }}/policies/exceptions"
         directory:
           recurse: true
