@@ -11,6 +11,59 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.31.0] — 2026-04-22
+
+### Added — `clientGitopsRepoRevision` and `configRepoRevision` values
+
+Part of ADR 0020 (GitOps-native continuous reconciliation). Lets
+consumers track a branch (e.g. `main`, `release/prod`) instead of
+pinning a specific tag for **own-content repos** (client gitops +
+config overrides). Tag pinning for **external dependencies**
+(upstream Estabilis versions, container images, external helm
+charts) is unchanged.
+
+Changes:
+
+- `workload-bootstrap/values.yaml`: add `clientGitopsRepoRevision`
+  and `configRepoRevision`. Legacy `clientGitopsRepoVersion` and
+  `configRepoVersion` are **retained for backcompat** — when both
+  are set, the `*Revision` wins. When both are empty but the
+  corresponding URL is set, the helpers fail loudly.
+- `workload-bootstrap/templates/_helpers.tpl`: new helpers
+  `clientGitopsRefRequired`, `configRepoRefRequired`, and private
+  resolvers `clientGitopsRef` / `configRepoRef`. `overrideEnabled`
+  / `overrideSource` / `overrideValueFile` /
+  `ignoreMissingValueFiles` updated to consume `configRepoRef`
+  instead of `configRepoVersion` directly. `gitopsSource` consumes
+  `clientGitopsRefRequired`.
+- `workload-bootstrap/templates/client-apps.yaml`: ApplicationSet
+  generator `revision` and generated Application `targetRevision`
+  both use `clientGitopsRefRequired`.
+- `workload-bootstrap/templates/client-kyverno-exceptions.yaml`:
+  ApplicationSet source `targetRevision` uses
+  `clientGitopsRefRequired`.
+
+### Migration path
+
+- **No action required**: continue setting the legacy `*Version`
+  values. Chart renders identically to v0.30.1.
+- **Adopt branch tracking**: set `clientGitopsRepoRevision: main`
+  (or `release/prod` etc.), leave `clientGitopsRepoVersion` empty.
+  Same for `configRepoRevision`. Enables continuous reconciliation
+  per ADR 0020.
+
+### Compatibility
+
+100% backward-compatible. Verified via `helm template` in four
+modes: legacy-only, revision-only, both-set (revision wins), empty
+(fail loud with descriptive message).
+
+### Companion bump
+
+`estabilis-platform` v0.13.0 introduces the matching values at the
+platform-root chart level. Use both together when adopting
+continuous reconciliation.
+
 ## [0.30.1] — 2026-04-22
 
 ### Added — `values/platform/acr-image-updater-credentials.yaml` overlay

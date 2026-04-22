@@ -136,26 +136,76 @@ Without both values set, all three helpers render nothing (no-op) and
 the ApplicationSets work exactly as before.
 */}}
 
+{{/*
+Ref resolver helpers — resolve the effective git ref (branch or tag)
+for each repo, preferring the new *Revision values over the legacy
+*Version values. Adopted in v0.31.0 per ADR 0020 (GitOps-native
+continuous reconciliation) to allow consumers to track branches
+(main / release/<env>) instead of pinning tags for own-content repos.
+
+Both the legacy (configRepoVersion / clientGitopsRepoVersion) and the
+new (configRepoRevision / clientGitopsRepoRevision) values are
+accepted. When both are set, the *Revision wins. When neither is set
+but the corresponding URL is configured, the helper fails loudly.
+
+Migration path for existing consumers:
+  - No action required: continue setting the legacy *Version value.
+  - To adopt branch tracking: unset *Version, set *Revision to a branch
+    name (e.g. "main") or tag.
+*/}}
+
+{{- define "workload-bootstrap.configRepoRef" -}}
+{{- if .Values.configRepoRevision -}}
+{{- .Values.configRepoRevision -}}
+{{- else if .Values.configRepoVersion -}}
+{{- .Values.configRepoVersion -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "workload-bootstrap.configRepoRefRequired" -}}
+{{- $ref := include "workload-bootstrap.configRepoRef" . -}}
+{{- if not $ref -}}
+{{- fail "configRepoRevision (or legacy configRepoVersion) is required when configRepoUrl is set" -}}
+{{- end -}}
+{{- $ref -}}
+{{- end -}}
+
+{{- define "workload-bootstrap.clientGitopsRef" -}}
+{{- if .Values.clientGitopsRepoRevision -}}
+{{- .Values.clientGitopsRepoRevision -}}
+{{- else if .Values.clientGitopsRepoVersion -}}
+{{- .Values.clientGitopsRepoVersion -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "workload-bootstrap.clientGitopsRefRequired" -}}
+{{- $ref := include "workload-bootstrap.clientGitopsRef" . -}}
+{{- if not $ref -}}
+{{- fail "clientGitopsRepoRevision (or legacy clientGitopsRepoVersion) is required when clientGitopsRepoUrl is set" -}}
+{{- end -}}
+{{- $ref -}}
+{{- end -}}
+
 {{- define "workload-bootstrap.overrideEnabled" -}}
-{{- and .Values.configRepoUrl .Values.configRepoVersion -}}
+{{- and .Values.configRepoUrl (include "workload-bootstrap.configRepoRef" .) -}}
 {{- end -}}
 
 {{- define "workload-bootstrap.overrideSource" -}}
-{{- if and .Values.configRepoUrl .Values.configRepoVersion }}
+{{- if include "workload-bootstrap.overrideEnabled" . }}
 - repoURL: {{ .Values.configRepoUrl }}
-  targetRevision: {{ .Values.configRepoVersion }}
+  targetRevision: {{ include "workload-bootstrap.configRepoRefRequired" . }}
   ref: overrides
 {{- end }}
 {{- end -}}
 
 {{- define "workload-bootstrap.overrideValueFile" -}}
-{{- if and .root.Values.configRepoUrl .root.Values.configRepoVersion }}
+{{- if include "workload-bootstrap.overrideEnabled" .root }}
 - $overrides/overrides/{{ .component }}/values.yaml
 {{- end }}
 {{- end -}}
 
 {{- define "workload-bootstrap.ignoreMissingValueFiles" -}}
-{{- if and .Values.configRepoUrl .Values.configRepoVersion }}
+{{- if include "workload-bootstrap.overrideEnabled" . }}
 ignoreMissingValueFiles: true
 {{- end }}
 {{- end -}}
@@ -167,7 +217,7 @@ Client GitOps override helpers (ADR 0008 Tier 3).
 {{- define "workload-bootstrap.gitopsSource" -}}
 {{- if and .Values.clientGitopsRepoUrl .Values.deploymentId }}
 - repoURL: {{ .Values.clientGitopsRepoUrl }}
-  targetRevision: {{ required "clientGitopsRepoVersion is required when clientGitopsRepoUrl is set" .Values.clientGitopsRepoVersion }}
+  targetRevision: {{ include "workload-bootstrap.clientGitopsRefRequired" . }}
   ref: gitops
 {{- end }}
 {{- end -}}
