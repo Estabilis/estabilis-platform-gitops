@@ -1,0 +1,59 @@
+name: gitleaks
+
+# Hard-gate secret scanning using the gitleaks CLI binary directly
+# (Apache 2.0). This avoids the gitleaks-action v2 requirement for a
+# GITLEAKS_LICENSE secret, which is free for orgs but still needs one-time
+# registration + secret provisioning per org. The trade-off is less
+# convenience (no inline PR annotations), in exchange for zero
+# registration + zero telemetry.
+#
+# Binary version is pinned and kept in sync with the rev in
+# .pre-commit-config.yaml, so CI and local developer setups produce the
+# same findings.
+#
+# Shares .gitleaks.toml with the local pre-commit setup — single source of
+# truth for allowlists and custom rules.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: gitleaks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      # Keep in sync with the `rev:` field in .pre-commit-config.yaml for
+      # the gitleaks hook. When bumping, update both places.
+      GITLEAKS_VERSION: "8.21.2"
+
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL "$url" | tar -xz
+          sudo mv gitleaks /usr/local/bin/
+          gitleaks version
+
+      - name: Scan full history
+        run: |
+          gitleaks detect \
+            --source=. \
+            --config=.gitleaks.toml \
+            --redact \
+            --verbose

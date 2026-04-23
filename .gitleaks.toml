@@ -1,0 +1,53 @@
+# Gitleaks configuration for estabilis-platform.
+#
+# Extends the default ruleset with an allowlist calibrated for the
+# documentation and example patterns used throughout this repo.
+
+title = "estabilis-platform gitleaks config"
+
+[extend]
+# Load the maintained default rules from upstream, then apply the overrides
+# below. Keeps coverage current without re-declaring every rule.
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Global allowlist — paths and patterns that may contain secret-like
+# strings that are NOT real secrets (documentation, placeholders, UUIDs in
+# variable descriptions, etc.).
+# ---------------------------------------------------------------------------
+
+[allowlist]
+description = "Documentation, changelog, ADRs, and placeholder values"
+
+paths = [
+  '''^\.pre-commit-config\.yaml$''',
+  '''^\.gitleaks\.toml$''',
+  '''^CHANGELOG\.md$''',
+  '''^README\.md$''',
+  '''^CLAUDE\.md$''',
+  '''^LICENSE$''',
+  '''^docs/adr/.*\.md$''',
+  '''^docs/.*\.md$''',
+  # Terraform lock files are provider signature hashes, not secrets.
+  '''\.terraform\.lock\.hcl$''',
+]
+
+regexes = [
+  # Example / placeholder tokens — frequent in docs and variable defaults.
+  '''EXAMPLE[-_]?(TOKEN|SECRET|KEY|PASSWORD)''',
+  '''<[A-Z_]+>''',                       # <TOKEN>, <SECRET>, etc.
+  '''(?i)your[-_]?(token|key|secret)''', # your-token, YOUR_KEY, etc.
+  '''xxxx+''',                           # xxxxxxxx placeholder
+  # UUID-looking strings used as Azure subscription/tenant/Cloudflare zone
+  # placeholders in variable descriptions. Real UUIDs never land in committed
+  # code — they live in .tfvars (gitignored) or Secrets Manager.
+  '''\b00000000-0000-0000-0000-000000000000\b''',
+]
+
+stopwords = [
+  "example",
+  "placeholder",
+  "dummy",
+  "fake",
+  "sample",
+]

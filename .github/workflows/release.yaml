@@ -1,0 +1,123 @@
+name: release
+
+# Detects `chore(release): vX.Y.Z` commits on main and:
+#   1. Creates an annotated git tag `vX.Y.Z` pointing at the commit
+#   2. Creates a GitHub Release with the CHANGELOG section extracted
+#      between `## [X.Y.Z]` and the next `## [`
+#
+# Operator workflow:
+#   - Merge feature PRs normally (squash or merge, doesn't matter)
+#   - When ready to release, create a dedicated commit on main with the
+#     subject `chore(release): vX.Y.Z` (via a small PR or direct push —
+#     the workflow handles both).
+#   - This workflow tags + releases. No manual `git tag` / `git push --tags`
+#     required.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write # needs to push the tag + create the release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need full history for CHANGELOG extraction
+
+      - name: Detect release commit
+        id: detect
+        run: |
+          set -euo pipefail
+          subject=$(git log -1 --pretty=%s)
+          echo "Last commit subject: $subject"
+          if [[ "$subject" =~ ^chore\(release\):\ v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            version="v${BASH_REMATCH[1]}"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+            echo "Detected release: $version"
+          else
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "Not a release commit — skipping."
+          fi
+
+      - name: Guard against duplicate tag
+        if: steps.detect.outputs.should_release == 'true'
+        run: |
+          set -euo pipefail
+          version="${{ steps.detect.outputs.version }}"
+          if git rev-parse "refs/tags/$version" >/dev/null 2>&1; then
+            echo "::error::Tag $version already exists. Either the release commit is being replayed, or a manual tag was created out of band."
+            exit 1
+          fi
+
+      - name: Extract CHANGELOG section
+        if: steps.detect.outputs.should_release == 'true'
+        id: changelog
+        run: |
+          set -euo pipefail
+          version_bare="${{ steps.detect.outputs.version }}"
+          version_bare="${version_bare#v}"
+
+          # AWK extracts lines between `## [X.Y.Z]` (exclusive of header)
+          # and the next `## [` marker. Stops on first match only.
+          body=$(awk -v ver="$version_bare" '
+            BEGIN { found=0; done=0 }
+            /^## \[/ {
+              if (found) { done=1 }
+              if ($0 ~ "^## \\[" ver "\\]") { found=1; next }
+            }
+            found && !done { print }
+          ' CHANGELOG.md)
+
+          if [[ -z "$body" ]]; then
+            echo "::warning::No CHANGELOG section found for $version_bare — using a generic message."
+            body="Release $version_bare. See CHANGELOG.md for the full list of changes."
+          fi
+
+          # Multi-line output via heredoc delimiter
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            echo "$body"
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create annotated tag
+        if: steps.detect.outputs.should_release == 'true'
+        env:
+          VERSION: ${{ steps.detect.outputs.version }}
+          BODY: ${{ steps.changelog.outputs.body }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Build the tag message in a file — using -m with embedded newlines
+          # is brittle inside YAML block scalars.
+          printf '%s\n\n%s\n' "$VERSION" "$BODY" > /tmp/tag-message.txt
+          git tag -a "$VERSION" -F /tmp/tag-message.txt
+          git push origin "$VERSION"
+          echo "Tag $VERSION pushed."
+
+      - name: Create GitHub Release
+        if: steps.detect.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.detect.outputs.version }}
+          BODY: ${{ steps.changelog.outputs.body }}
+        run: |
+          set -euo pipefail
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes "$BODY" \
+            --target "$GITHUB_SHA"
+          echo "GitHub Release $VERSION created."
