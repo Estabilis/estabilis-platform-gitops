@@ -11,6 +11,40 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.34.0] — 2026-04-24
+
+### Added — `components/cluster-secret-store` chart now supports AWS provider
+
+The chart had a single Azure template (`cluster-secret-store-azure.yaml`)
+that unconditionally rendered an `azurekv`-backed ClusterSecretStore.
+This release adds:
+
+- A new `provider` top-level value. Defaults to `"azure"` for
+  backcompat — existing Azure downstreams see zero change.
+- `cluster-secret-store-aws.yaml`: rendered when `provider: aws`,
+  produces an ExternalSecrets `ClusterSecretStore` using the AWS
+  Secrets Manager provider, authenticated via IRSA (JWT/
+  `serviceAccountRef`).
+- New values fields:
+  - `region` (required on AWS; falls back per-store when `stores` is set)
+  - `aws.serviceAccount.{name,namespace}` — defaults `external-secrets/external-secrets`
+
+### Migration
+
+- Azure downstreams: no action. `provider` defaults to `azure`.
+- AWS downstreams: set `provider: aws`, `region: <aws-region>` in
+  `overrides/platform-root/values.yaml` (or equivalent) and ensure the
+  `external-secrets` ServiceAccount carries the IRSA annotation
+  (already wired by `providers/aws/iam.tf` →
+  `module.external_secrets_irsa`).
+
+### Consumer alignment
+
+`estabilis-platform` v0.19.0+ passes `provider: {{ .Values.global.provider }}`
+as a helm parameter from `bootstrap/platform-root/templates/cluster-secret-store.yaml`.
+Older `estabilis-platform` versions send no `provider` parameter and the
+chart falls back to Azure — still safe for Azure-only deployments.
+
 ## [0.33.0] — 2026-04-24
 
 ### Added — AWS provider overlays for platform hub components

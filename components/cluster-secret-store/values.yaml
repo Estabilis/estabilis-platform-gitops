@@ -1,34 +1,66 @@
-# cluster-secret-store — ExternalSecrets ClusterSecretStore for Azure Key Vault.
+# cluster-secret-store — ExternalSecrets ClusterSecretStore.
 #
-# Two modes:
+# Provider selection (v0.34.0+):
+#   - provider: azure  (default, backward-compatible)  → uses Azure Key Vault
+#   - provider: aws                                    → uses AWS Secrets Manager
 #
-# 1) Single-store (default): top-level `vaultUrl` + `tenantId` produce
-#    one ClusterSecretStore named `platform-secret-store`. Backward-
-#    compatible with every version before multi-store support.
+# Azure + AWS share the same multi-store semantics; each provider reads
+# a provider-specific subset of fields. When `stores` is empty the
+# chart renders a single legacy `platform-secret-store` with top-level
+# fields.
+
+provider: azure
+
+# --------------------- Azure provider ---------------------------------
 #
-# 2) Multi-store: set `stores` to a non-empty list and each entry
-#    produces one ClusterSecretStore. Use this when the cluster needs
-#    to read secrets from more than one Key Vault (e.g. platform KV +
-#    shared-infra KV owned by a different module). The external-
-#    secrets MI must have `Key Vault Secrets User` on every vault
-#    listed here.
+# Required when provider=azure.
 #
-# When `stores` is non-empty, the top-level `vaultUrl` is ignored
-# (only `tenantId` stays as a fallback for entries that omit it).
+# Single-store: top-level `vaultUrl` + `tenantId`.
+# Multi-store: `stores` with per-entry `vaultUrl` + (optional) `tenantId`
+# (falls back to top-level tenantId).
 
 vaultUrl: ""
 tenantId: ""
 
-# Multi-store list. Each entry:
-#   - name: ClusterSecretStore resource name (must be unique cluster-wide)
-#   - vaultUrl: https://<kvname>.vault.azure.net/
-#   - tenantId: (optional) falls back to top-level `tenantId`
+# --------------------- AWS provider -----------------------------------
 #
-# Example:
+# Required when provider=aws.
+#
+# Single-store: top-level `region` used as the AWS region for Secrets
+# Manager.
+# Multi-store: `stores` entries may override `region` per-entry; fall
+# back to top-level `region`.
+#
+# `aws.serviceAccount.{name,namespace}` reference the external-secrets
+# controller ServiceAccount annotated with an IRSA role ARN (wired by
+# Terraform; see providers/aws/iam.tf → module.external_secrets_irsa).
+
+region: ""
+
+aws:
+  serviceAccount:
+    name: external-secrets
+    namespace: external-secrets
+
+# ---------------------- Multi-store list ------------------------------
+#
+# Each entry:
+#   - name: ClusterSecretStore resource name (must be unique cluster-wide)
+#   - vaultUrl: (azure only) https://<kvname>.vault.azure.net/
+#   - tenantId: (azure only, optional) falls back to top-level `tenantId`
+#   - region:   (aws only, optional) falls back to top-level `region`
+#
+# Example (Azure):
 #
 # stores:
 #   - name: platform-secret-store
 #     vaultUrl: https://kv-transfero-hml-lmj060.vault.azure.net/
 #   - name: shared-infra-secret-store
 #     vaultUrl: https://kv-transfero-shared-infra-hml-xxxxx.vault.azure.net/
+#
+# Example (AWS):
+#
+# stores:
+#   - name: platform-secret-store
+#     region: us-east-1
 stores: []
