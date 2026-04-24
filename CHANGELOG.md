@@ -11,6 +11,43 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.33.0] — 2026-04-24
+
+### Added — AWS provider overlays for platform hub components
+
+Introduces two new per-provider overlay files under `values/platform/`
+loaded by the hub's `platform-root` Application via the existing
+`$values/values/platform/<component>-{{ .Values.global.provider }}.yaml`
+convention. Both files wire the respective ServiceAccount for IRSA so
+the controller pods can authenticate against AWS APIs via the IAM
+roles already provisioned by `estabilis-platform/providers/aws/iam.tf`.
+
+- `values/platform/cert-manager-aws.yaml` — cert-manager controller SA
+  IRSA annotation. Paired with `module.cert_manager_irsa` (gated on
+  `dns_provider = "route53"`). Enables Route53 DNS-01 solving for the
+  `letsencrypt-production` ClusterIssuer on EKS hub clusters.
+
+- `values/platform/external-secrets-aws.yaml` — external-secrets
+  controller SA IRSA annotation. Paired with
+  `module.external_secrets_irsa`. Enables the ClusterSecretStore
+  (already AWS-aware in `cluster-secret-store.yaml`) to read from AWS
+  Secrets Manager.
+
+Both overlays expose `serviceAccount.annotations.eks.amazonaws.com/role-arn`
+as an injection point. The value is injected per-cluster by
+`platform-root` as a Helm parameter (wired in PR #2 of
+`Estabilis/estabilis-platform-tools#186`).
+
+Files are additive — Azure overlays (`cert-manager-azure.yaml`,
+`external-secrets-azure.yaml`) remain unchanged; the upstream
+`platform-root` template selects exactly one overlay per render based
+on `global.provider`.
+
+### Version
+
+`v0.32.0 → v0.33.0`. Minor bump — new provider support, no breaking
+changes. Existing Azure deployments continue rendering identically.
+
 ## [0.32.0] — 2026-04-22
 
 ### Fixed — `inject-pss-labels` infinite drift (Kyverno CRD defaults)
