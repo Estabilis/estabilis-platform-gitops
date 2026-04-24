@@ -1,0 +1,19 @@
+# AWS-specific overlay for cert-manager on the hub cluster
+# Loaded in addition to cert-manager.yaml when global.provider=aws.
+#
+# Wires the cert-manager controller pod for IRSA so the DNS-01 solver
+# (ClusterIssuer letsencrypt-production) can authenticate against
+# Route53 via the dedicated IAM role (module.cert_manager_irsa in
+# providers/aws/iam.tf, gated on dns_provider = "route53").
+#
+# Without this annotation the SA cannot assume the role and the
+# challenge fails with:
+#   "WebIdentityErr: failed to retrieve credentials"
+#
+# The roleArn is dynamic per-cluster and is injected as a helm
+# parameter by platform-root (see bootstrap/platform-root/templates/
+# cert-manager.yaml).
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # injected via helm.parameter
