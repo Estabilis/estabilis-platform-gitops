@@ -45,6 +45,12 @@ components:
   karpenter: false
   metrics-server: false
 
+  # Multi-provider opt-in components — DEFAULT FALSE.
+  # Vault is opt-in on either provider via `vault_enabled = true` in
+  # terraform.tfvars. Auto-unseal differs per provider (AWS KMS / Azure
+  # Key Vault) but the chart and triple-belt are identical.
+  vault: false
+
 policies:
   grafana:
     enabled: true
@@ -81,6 +87,8 @@ policies:
   karpenter:
     enabled: true
   metrics-server:
+    enabled: true
+  vault:
     enabled: true
 
 # Downstream escape hatch — additive NetworkPolicies declared by the client.

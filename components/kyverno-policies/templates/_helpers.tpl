@@ -19,6 +19,7 @@ Do NOT call directly in policy templates — use the full exclude helpers.
                 - kyverno
                 - metrics-server
                 - node-exporter
+                - vault
                 - opencost
                 - traefik
                 - trivy-system

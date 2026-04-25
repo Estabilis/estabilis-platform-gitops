@@ -11,6 +11,51 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.38.0] — 2026-04-25
+
+### Added — `vault` namespace coverage in policy/quota layers (foundation)
+
+First pass of HashiCorp Vault as a multi-provider platform component.
+This release lands ONLY the policy/quota coverage (triple-belt) for
+the `vault` namespace; the chart values overlay, Terraform
+infrastructure, and platform-root Application live in
+`estabilis-platform v0.28.0` (paired).
+
+#### Changes
+
+1. **`components/kyverno-policies/templates/_helpers.tpl`** — add
+   `vault` to `excluded-namespace-list` (alphabetically last). Affects
+   the four ClusterPolicies that use this helper
+   (`default-deny-network-policy`, `inject-pss-labels`,
+   `require-limit-ranges`, `require-resource-quotas`).
+2. **`components/network-policies/`** — declare `vault` in `components`
+   and `policies` maps (default `false`) + new `allow-vault` template.
+   Allows broad egress (cloud unseal endpoint — KMS / Azure Key Vault,
+   backup storage — S3 / Azure Storage, Kubernetes API), inter-pod
+   Raft on port 8201, ingress on Vault API port 8200 from any pod
+   (Vault is the cluster-scoped secret store), and Alloy metrics
+   scraping from `grafana` namespace.
+3. **`components/resource-quotas/`** — declare `vault` in `components`
+   and `namespaces` maps (default `false`). Sized for 3-replica Raft HA
+   at chart defaults (50m/128Mi requests, 250m/256Mi limits per pod):
+   hard `requests.cpu=300m, requests.memory=600Mi, limits.cpu=1500m,
+   limits.memory=1500Mi`. PVC count = 5 (3 Raft replicas with headroom).
+
+#### Foundation scope
+
+This release is part of the Vault foundation — chart deployment +
+provider-aware unseal infrastructure only. Bootstrap (auth methods,
+policies, KV mount, ClusterSecretStore wiring) is intentionally
+deferred to downstream / follow-up releases. Vault comes up sealed
+or auto-unsealed (depending on cloud unseal status) but
+NOT-INITIALIZED — operator runs `vault operator init` manually after
+the platform-root Application syncs.
+
+The `vault: false` default in both charts pairs with the upstream
+`bootstrap/platform-root/values.yaml` default of `vault: false` —
+opt-in feature, activated by `vault_enabled = true` in
+terraform.tfvars.
+
 ## [0.37.2] — 2026-04-25
 
 ### Added — `metrics-server` namespace coverage in policy/quota layers
