@@ -11,6 +11,72 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.35.0] — 2026-04-24
+
+### Added — `components/karpenter-resources/` chart + `values/platform/{metrics-server,karpenter}.yaml` overlays (AWS)
+
+Companion release to `estabilis-platform v0.21.0`, which adds Karpenter
+v1.12.0 + metrics-server Applications for AWS. This release ships the
+chart and value overlays consumed by those Applications, following ADR
+0002 Phase 3 (gitops repo as single source of truth for new components).
+
+#### `components/karpenter-resources/`
+
+Estabilis-authored chart that renders the two Karpenter custom
+resources for AWS:
+
+- `NodePool/default` — limits cpu=32 mem=64Gi, disruption
+  `WhenEmptyOrUnderutilized` after 1m, requirements amd64 +
+  spot/on-demand, instance categories c/m/r/t, generation > 4, sizes
+  medium/large/xlarge, `expireAfter: 720h`. Mirrors the legacy
+  `cortex-eks-prod` configuration.
+- `EC2NodeClass/default` — AMI alias `al2023@latest`, BDM `/dev/xvda`
+  30Gi gp3 encrypted, **IMDSv2 enforcement** (`httpTokens: required`,
+  `httpPutResponseHopLimit: 1`, `httpProtocolIPv6: disabled`),
+  Subnet/SG selection via `<discoveryTagKey>=<clusterName>` tags
+  (Terraform-applied; default tag key `estabilis.io/discovery`).
+
+Cluster-specific wiring (`clusterName`, `nodeRole`, `discoveryTagKey`)
+is injected via helm parameters from the platform-root template's
+AWS branch. NodePool/EC2NodeClass shape (instance families, sizes,
+limits) is configurable in this chart's `values.yaml` so downstream
+can tune capacity without forking.
+
+The chart's `appVersion` tracks the upstream Karpenter controller
+version we pin (currently 1.12.0). Schemas have remained stable
+across 1.x releases.
+
+#### `values/platform/metrics-server.yaml`
+
+Defaults for the upstream `metrics-server` chart on hub clusters.
+Consumed by `estabilis-platform/bootstrap/platform-root/templates/metrics-server.yaml`
+via the `$values/values/platform/metrics-server.yaml` ref. Mirrors
+legacy production: 2 replicas, podAntiAffinity by hostname,
+`--kubelet-insecure-tls`, tight resource limits.
+
+#### `values/platform/karpenter.yaml`
+
+Defaults for the upstream `karpenter` controller chart on hub
+clusters. Mirrors legacy production: controller resources, fargate
+toleration, `featureGates.spotToSpotConsolidation: true`. Cluster
+endpoint, name, and IRSA role are injected via helm parameters from
+the platform-root template, NOT this overlay.
+
+### Migration
+
+Bump `workload-bootstrap/Chart.yaml` `version` + `appVersion` to
+`0.35.0`, `workload-bootstrap/values.yaml` `repoVersion` to `v0.35.0`.
+
+Consumers (Estabilis client downstreams on AWS): set
+`platformGitopsVersion: "v0.35.0"` in
+`overrides/platform-root/values.yaml`. Required by
+`estabilis-platform v0.21.0`+ on AWS.
+
+### Azure impact
+
+Zero. All overlays and the chart are AWS-only — neither is referenced
+by any Application gated on `provider == "azure"`.
+
 ## [0.34.0] — 2026-04-24
 
 ### Added — `components/cluster-secret-store` chart now supports AWS provider

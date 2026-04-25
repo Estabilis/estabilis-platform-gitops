@@ -1,0 +1,48 @@
+# metrics-server — Resource Metrics API server (`v1beta1.metrics.k8s.io`).
+#
+# Consumed by `kubectl top`, HPA, and any controller that talks to the
+# Resource Metrics API. AKS provides this natively so the platform-root
+# template gates the Application on `provider == "aws"`. EKS does not
+# include metrics-server in its managed addon set; this chart fills that gap.
+#
+# Defaults below mirror the configuration we run on the legacy
+# `cortex-eks-prod` cluster (chart 3.12.x, image v0.7.x):
+#   - 2 replicas with podAntiAffinity by hostname
+#   - `--kubelet-insecure-tls` because EKS kubelets present
+#     self-signed certs that don't validate against the cluster CA
+#     by default
+#   - small resource ask + tight limit (the workload is bounded)
+#
+# Downstream overrides go in
+# `overrides/metrics-server/values.yaml` of the client config repo
+# (consumed via the platform-root.overrideValueFile helper).
+
+replicas: 2
+
+args:
+  - --kubelet-insecure-tls
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: metrics-server
+        topologyKey: kubernetes.io/hostname
+
+# `estabilis.io/workload-type=platform` toleration matches the MNG
+# node group annotation set by providers/aws/eks.tf — keeps the
+# metrics-server pods on platform nodes.
+tolerations:
+  - key: "estabilis.io/workload-type"
+    operator: "Equal"
+    value: "platform"
+    effect: "NoSchedule"

@@ -1,0 +1,45 @@
+# Karpenter — controller + webhook for cluster autoscaling on AWS.
+#
+# AWS-only component. Azure uses the AKS native autoscaler, so the
+# platform-root template gates this Application on
+# `provider == "aws"` AND `autoscaler in [karpenter, hybrid]`.
+#
+# Provider-agnostic defaults derived from the legacy `cortex-eks-prod`
+# release (chart 1.9.x). We ship 1.12.x with additive changes only:
+# DescribeInstanceStatus interruption checks, NodeClaim CA-bundle drift,
+# AWS Application Recovery Controller zonal-shift integration, and
+# do-not-disrupt grace period. No breaking schema changes.
+#
+# Cluster-specific wiring (cluster name,
+# interruption queue, IAM role ARN) is injected via helm.parameters
+# from platform-root, with values pulled from the
+# `platform-infrastructure` ConfigMap.
+#
+# Downstream overrides: `overrides/karpenter/values.yaml` in the
+# client config repo.
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Controller runs on Fargate by default (the karpenter namespace is
+# part of the Fargate profile created by the EKS module). Without this
+# toleration, the controller pods can't schedule on the Fargate
+# infrastructure that hosts the namespace.
+tolerations:
+  - key: "eks.amazonaws.com/compute-type"
+    operator: "Equal"
+    value: "fargate"
+    effect: "NoSchedule"
+
+settings:
+  # spot-to-spot consolidation lets Karpenter migrate workloads
+  # between spot instances to reclaim cheaper capacity. Cleared by
+  # default-false in the chart but enabled here to match the legacy
+  # cortex production behaviour.
+  featureGates:
+    spotToSpotConsolidation: true
