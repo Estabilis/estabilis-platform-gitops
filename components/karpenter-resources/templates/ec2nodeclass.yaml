@@ -1,0 +1,32 @@
+{{- /*
+  EC2NodeClass — defines the AWS-specific shape of nodes Karpenter
+  provisions (AMI family, IAM role, subnets, security groups, EBS).
+
+  Subnets and security groups are discovered by Terraform-applied
+  tags (`{{ .Values.discoveryTagKey }}` = `<clusterName>`), the same
+  mechanism the legacy cortex-eks-prod cluster uses. The discovery
+  tag key is configurable per-deployment to allow multiple Estabilis
+  clusters to coexist in the same VPC without colliding on the
+  default `karpenter.sh/discovery` namespace.
+*/ -}}
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  amiSelectorTerms:
+    {{- toYaml .Values.ec2NodeClass.amiSelectorTerms | nindent 4 }}
+  role: {{ required "nodeRole is required" .Values.nodeRole | quote }}
+  subnetSelectorTerms:
+    - tags:
+        {{ .Values.discoveryTagKey }}: {{ required "clusterName is required" .Values.clusterName | quote }}
+  securityGroupSelectorTerms:
+    - tags:
+        {{ .Values.discoveryTagKey }}: {{ .Values.clusterName | quote }}
+  blockDeviceMappings:
+    {{- toYaml .Values.ec2NodeClass.blockDeviceMappings | nindent 4 }}
+  metadataOptions:
+    {{- toYaml .Values.ec2NodeClass.metadataOptions | nindent 4 }}
+  tags:
+    {{ .Values.discoveryTagKey }}: {{ .Values.clusterName | quote }}

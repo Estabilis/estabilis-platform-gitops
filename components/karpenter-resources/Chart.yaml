@@ -1,0 +1,18 @@
+apiVersion: v2
+name: karpenter-resources
+description: |
+  Default NodePool + EC2NodeClass for Karpenter on EKS.
+
+  Renders the two Karpenter custom resources that tell the controller
+  WHAT instances to provision and HOW (AMI, IAM, subnets, SGs). The
+  Karpenter controller chart itself is deployed by a separate
+  Application from the upstream OCI registry
+  (`public.ecr.aws/karpenter/karpenter`); this chart is rendered in
+  a later sync wave so the CRDs are present before the CRs apply.
+
+  appVersion tracks the Karpenter controller version we pin from
+  upstream — currently 1.12.0. NodePool/EC2NodeClass schemas have
+  remained stable across 1.x releases.
+type: application
+version: 0.1.0
+appVersion: "1.12.0"

@@ -1,0 +1,31 @@
+{{- /*
+  NodePool — Karpenter scheduling policy. Defines what kinds of
+  EC2 instances may be provisioned (capacity-type, instance family,
+  size) and the disruption policy for reclaiming idle capacity.
+
+  Defaults mirror legacy cortex-eks-prod (general-purpose
+  c/m/r/t > gen4, medium/large/xlarge, spot+on-demand, 32 vCPU /
+  64Gi cluster cap, 1m underutilization consolidation).
+*/ -}}
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: default
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  limits:
+    {{- toYaml .Values.nodePool.limits | nindent 4 }}
+  disruption:
+    consolidationPolicy: {{ .Values.nodePool.disruption.consolidationPolicy }}
+    consolidateAfter: {{ .Values.nodePool.disruption.consolidateAfter }}
+    budgets:
+      {{- toYaml .Values.nodePool.disruption.budgets | nindent 6 }}
+  template:
+    spec:
+      expireAfter: {{ .Values.nodePool.template.expireAfter }}
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+      requirements:
+        {{- toYaml .Values.nodePool.template.requirements | nindent 8 }}
