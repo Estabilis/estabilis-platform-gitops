@@ -11,6 +11,42 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.36.0] — 2026-04-25
+
+### Added — `values/platform/aws-load-balancer-controller.yaml`
+
+Companion to `estabilis-platform v0.23.0`, which adds the AWS Load
+Balancer Controller Application gated on
+`ingress_controller == "alb"`. This release ships the values overlay
+consumed by that Application via `$values/values/platform/aws-load-balancer-controller.yaml`.
+
+Defaults mirror the legacy `cortex-eks-prod` configuration (chart
+`1.17.1`, controller `v2.17.1`):
+- Resources: requests cpu=10m mem=64Mi / limits cpu=100m mem=128Mi
+- ServiceAccount created by the chart, IRSA role-arn injected via
+  helm.parameters from the platform-root template.
+- `podDisruptionBudget.maxUnavailable: 1` for the chart's default 2
+  replicas.
+
+`clusterName` and `vpcId` are NOT set in this overlay — they MUST be
+injected via helm.parameters from `platform-infrastructure` ConfigMap
+(`global.clusterName`, `global.vpcId`). Leaving them unset here makes
+the chart fail loud if a downstream forgets to wire them.
+
+### Migration
+
+Bump `workload-bootstrap/Chart.yaml` `version` + `appVersion` to
+`0.36.0`, `workload-bootstrap/values.yaml` `repoVersion` to `v0.36.0`.
+
+Consumers (Estabilis client downstreams on AWS adopting `alb` ingress):
+set `platformGitopsVersion: "v0.36.0"` in
+`overrides/platform-root/values.yaml`. Required by
+`estabilis-platform v0.23.0`+ when `ingress_controller = "alb"`.
+
+### Azure impact
+
+Zero. AWS-only overlay, never referenced by Azure-gated Applications.
+
 ## [0.35.1] — 2026-04-25
 
 ### Fixed — Karpenter `controller.resources` path (was top-level `resources`, silently ignored)

@@ -1,0 +1,39 @@
+# AWS Load Balancer Controller — defaults for hub clusters.
+#
+# AWS-only component. Activated when `ingress_controller = "alb"` in
+# the platform downstream tfvars. The platform-root template
+# (`bootstrap/platform-root/templates/aws-load-balancer-controller.yaml`)
+# gates the Application accordingly.
+#
+# Defaults mirror the legacy `cortex-eks-prod` configuration (chart
+# 1.17.1, controller v2.17.1):
+#   - tight resources (10m / 64Mi req, 100m / 128Mi lim)
+#   - SA created by chart, IRSA role-arn injected via helm.parameters
+#     from platform-root using `global.identity.albController.roleArn`
+#   - clusterName + vpcId injected as helm.parameters as well
+#
+# Downstream overrides: `overrides/aws-load-balancer-controller/values.yaml`
+# in the client config repo.
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+
+automountServiceAccountToken: true
+
+# clusterName and vpcId are passed via helm.parameters from the
+# platform-root template — left empty here so the chart fails loud
+# (instead of silently provisioning ALBs against the wrong cluster).
+
+# Spread the two replicas the chart defaults to across nodes when
+# possible; matches the platform-wide policy on platform components.
+podDisruptionBudget:
+  maxUnavailable: 1
