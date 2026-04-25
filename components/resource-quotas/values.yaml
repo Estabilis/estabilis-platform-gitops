@@ -35,9 +35,11 @@ components:
   # these namespaces don't exist on Azure. Defaults are `false` so this
   # chart doesn't try to apply ResourceQuota / LimitRange to non-existent
   # namespaces. Upstream platform-root (>= v0.27.0) only flips them to
-  # `true` on AWS deployments where the relevant feature flag is set.
+  # `true` on AWS deployments where the relevant feature flag is set
+  # (metrics-server is unconditional on AWS — Azure AKS ships it natively).
   aws-load-balancer-controller: false
   karpenter: false
+  metrics-server: false
 
 defaults:
   hard:
@@ -212,5 +214,16 @@ namespaces:
       requests.memory: 3Gi
       limits.cpu: "4"
       limits.memory: 4Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
+  metrics-server:
+    enabled: true
+    # Sized for chart defaults: 2 replicas (HA) × 100m CPU + 200Mi memory
+    # each (requests). Quota gives 50% headroom for rolling-update surges.
+    hard:
+      requests.cpu: "300m"
+      requests.memory: 600Mi
+      limits.cpu: "1"
+      limits.memory: 1Gi
       pods: "10"
       persistentvolumeclaims: "5"

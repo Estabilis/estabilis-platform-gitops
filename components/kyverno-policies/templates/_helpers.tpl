@@ -17,6 +17,7 @@ Do NOT call directly in policy templates — use the full exclude helpers.
                 - kube-state-metrics
                 - kube-system
                 - kyverno
+                - metrics-server
                 - node-exporter
                 - opencost
                 - traefik
