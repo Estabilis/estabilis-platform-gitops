@@ -18,13 +18,26 @@
 # Downstream overrides: `overrides/karpenter/values.yaml` in the
 # client config repo.
 
-resources:
-  requests:
-    cpu: 250m
-    memory: 512Mi
-  limits:
-    cpu: 500m
-    memory: 512Mi
+controller:
+  # Resources for the controller container.
+  #
+  # The Karpenter chart nests resources under `controller.resources` —
+  # NOT top-level `resources`. v0.35.0 had the requests/limits at the
+  # wrong path so the chart silently rendered with `resources: {}` on
+  # cortex-eks-platform-prd. Verified via `helm show values` against
+  # both 1.9.x and 1.12.x: same path in both. The legacy
+  # `helm get values karpenter` on cortex-eks-prod showed top-level
+  # `resources:` (user-supplied at install time, also wrong path) — the
+  # actual live Deployment there has different resources from a manual
+  # patch later. We bake the correct path here and ship the values that
+  # match the legacy LIVE state.
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 1Gi
 
 # Controller runs on Fargate by default (the karpenter namespace is
 # part of the Fargate profile created by the EKS module). Without this
