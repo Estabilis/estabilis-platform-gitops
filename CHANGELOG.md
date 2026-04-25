@@ -11,6 +11,41 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.35.1] — 2026-04-25
+
+### Fixed — Karpenter `controller.resources` path (was top-level `resources`, silently ignored)
+
+The Karpenter chart (verified on both 1.9.x and 1.12.x) nests the
+controller container resources under `controller.resources` — NOT
+top-level `resources`. v0.35.0 of this repo had requests/limits at the
+top level, so when the platform-root karpenter Application rendered
+on cortex-eks-platform-prd, the chart silently dropped the values and
+the live Deployment shipped with `resources: {}`.
+
+Confirmed by reading `helm show values oci://public.ecr.aws/karpenter/karpenter`
+for both versions; the only `resources:` definition in the schema is
+indented under `controller:`.
+
+### Fix
+
+Re-nest under `controller.resources` and also bump to the values that
+match the legacy `cortex-eks-prod` LIVE Deployment (requests
+`500m / 1Gi`, limits `1 / 1Gi`) — the legacy `helm get values` output
+showed lower numbers (`250m / 500m / 512Mi`) at the wrong path,
+overridden by a manual patch later. We pin the actually-running
+configuration as the platform default.
+
+### Migration
+
+Operators on `v0.35.0` on AWS: bump `platformGitopsVersion` to
+`v0.35.1`, refresh + sync `karpenter` Application. Live Karpenter
+Deployment will roll its pods picking up the new requests/limits.
+No CRD changes; no impact on workloads scheduled by Karpenter.
+
+### Azure impact
+
+Zero — `karpenter` Application is gated on `provider == "aws"`.
+
 ## [0.35.0] — 2026-04-24
 
 ### Added — `components/karpenter-resources/` chart + `values/platform/{metrics-server,karpenter}.yaml` overlays (AWS)
