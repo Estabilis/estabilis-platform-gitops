@@ -11,6 +11,34 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.38.1] — 2026-04-25
+
+### Fixed — Vault chart overlays cleaned up (no more dead-code placeholders, no more gp3 default)
+
+Companion to `estabilis-platform v0.28.2` which lands the `vault-ingress`
+chart. v0.38.0's overlays carried two issues exposed during the cortex
+deployment:
+
+#### `values/platform/vault-aws.yaml` & `vault-azure.yaml`
+
+- **Removed placeholder strings** (`VAULT_KMS_REGION_PLACEHOLDER`,
+  `VAULT_KMS_KEY_ID_PLACEHOLDER`, `VAULT_TENANT_ID_PLACEHOLDER`, etc.)
+  inside the `server.ha.raft.config` block. The platform-root template
+  in `bootstrap/platform-root/templates/vault.yaml` injects the entire
+  `server.ha.raft.config` value via `--set` from helm.parameters,
+  completely overriding any value set in these overlay files. The
+  placeholders were dead code — confusing and never substituted.
+
+- **`server.dataStorage.storageClass` default changed `gp3` → `""`**
+  (use the cluster's default StorageClass). Older EKS clusters ship
+  only the legacy in-tree `gp2` provisioner without the EBS CSI driver;
+  hardcoding `gp3` blocked PVC binding on those. Clusters that have
+  `gp3` available can override per-client via `overrides/vault/values.yaml`.
+
+These overlay files now carry only the bits NOT handled via helm
+parameter — `serviceAccount.create: true`, the `azure.workload.identity/use`
+label for Azure, and the (now-empty) `storageClass`.
+
 ## [0.38.0] — 2026-04-25
 
 ### Added — `vault` namespace coverage in policy/quota layers (foundation)

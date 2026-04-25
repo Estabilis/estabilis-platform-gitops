@@ -2,70 +2,23 @@
 # Loaded in addition to vault.yaml when global.provider=azure.
 #
 # Auto-unseal: Azure Key Vault via `seal "azurekeyvault"` stanza.
-# Identity: Workload Identity — the SA gets annotated with the dedicated
-# Managed Identity client ID provisioned by `providers/azure/vault.tf`.
-# The MI has these role assignments:
-#   - Key Vault Crypto User on the dedicated KV (encrypt/decrypt/wrap/unwrap)
-#   - Storage Blob Data Contributor on the snapshot Storage Account
-#
-# Placeholder strings below are replaced by helm parameters injected by
-# `bootstrap/platform-root/templates/vault.yaml` from the
-# `platform-infrastructure-sensitive` Secret (terraform-managed).
+# The full `server.ha.raft.config` block is INJECTED via helm.parameters by
+# `bootstrap/platform-root/templates/vault.yaml` (see the Azure branch
+# there). This file only carries the bits that are NOT handled via
+# helm parameter.
 
 server:
-  # PVC storage class — managed-csi default on AKS (Premium_LRS).
+  # PVC storage class — empty default so the cluster's default
+  # StorageClass is used. AKS typically ships `default` (Premium_LRS via
+  # azure-disk-csi). Override per cluster if needed.
   dataStorage:
-    storageClass: managed-csi
+    storageClass: ""
 
-  # Workload Identity annotation — client_id injected via helm.parameters
-  # from platform-root (`server.serviceAccount.annotations.azure\.workload\.identity/client-id`).
+  # Workload Identity annotation is injected via helm.parameters from
+  # platform-root (`server.serviceAccount.annotations.azure\.workload\.identity/client-id`).
   serviceAccount:
     create: true
 
   # Pod-level Workload Identity label
-  statefulSet:
-    annotations: {}
   extraLabels:
     azure.workload.identity/use: "true"
-
-  ha:
-    raft:
-      # Provider-specific Raft + seal config.
-      # VAULT_KEY_VAULT_NAME_PLACEHOLDER, VAULT_UNSEAL_KEY_NAME_PLACEHOLDER,
-      # VAULT_TENANT_ID_PLACEHOLDER are replaced by helm parameters from
-      # platform-root.
-      config: |
-        ui = true
-
-        listener "tcp" {
-          tls_disable     = 1
-          address         = "[::]:8200"
-          cluster_address = "[::]:8201"
-        }
-
-        storage "raft" {
-          path = "/vault/data"
-
-          retry_join {
-            leader_api_addr = "http://vault-0.vault-internal:8200"
-          }
-          retry_join {
-            leader_api_addr = "http://vault-1.vault-internal:8200"
-          }
-          retry_join {
-            leader_api_addr = "http://vault-2.vault-internal:8200"
-          }
-        }
-
-        seal "azurekeyvault" {
-          tenant_id  = "VAULT_TENANT_ID_PLACEHOLDER"
-          vault_name = "VAULT_KEY_VAULT_NAME_PLACEHOLDER"
-          key_name   = "VAULT_UNSEAL_KEY_NAME_PLACEHOLDER"
-        }
-
-        telemetry {
-          prometheus_retention_time = "24h"
-          disable_hostname          = true
-        }
-
-        service_registration "kubernetes" {}
