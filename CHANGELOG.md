@@ -11,7 +11,18 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
-## [0.36.0] — 2026-04-25
+## [0.36.1] — 2026-04-25
+
+### Re-released as 0.36.1
+
+v0.36.0 tag pointed at the release commit BEFORE the feature PR (#28)
+landed on main (the operator merged the release commit prematurely).
+The tagged commit lacks the `aws-load-balancer-controller` overlay
+and `workload-bootstrap` version bump. v0.36.1 supersedes v0.36.0;
+the v0.36.0 tag remains in history but should not be referenced by
+downstreams.
+
+## [0.36.0] — 2026-04-25 (DO NOT USE — tag points at incomplete commit)
 
 ### Added — `values/platform/aws-load-balancer-controller.yaml`
 
