@@ -11,6 +11,41 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.37.1] — 2026-04-25
+
+### Fixed — `karpenter` ResourceQuota undersized for chart defaults
+
+`components/resource-quotas/values.yaml` shipped v0.37.0 with a
+karpenter quota of `requests.cpu=500m, requests.memory=1Gi` based on
+a back-of-envelope sizing. The actual karpenter chart defaults
+(per pod) are `requests.cpu=500m, requests.memory=1Gi`, and the
+chart deploys 2 replicas — so the steady-state consumption already
+exceeds the quota out of the box (2 × 1Gi = 2Gi memory > 1Gi quota).
+
+Live cortex-eks observation:
+```
+requests.cpu:    1/500m    (2 pods × 500m = 1 CPU)
+requests.memory: 2Gi/1Gi   (2 pods × 1Gi = 2Gi)
+```
+
+Existing pods continue running (Kubernetes does not retroactively
+evict over-quota pods), but new pods would be denied — including
+rollout surges and OOMKill replacements.
+
+#### Fix
+
+Bumped quota to give 50% headroom over steady state for safe rolling
+updates (3 pods during surge):
+```
+requests.cpu:    500m  → 1500m
+requests.memory: 1Gi   → 3Gi
+limits.cpu:      2     → 4
+limits.memory:   2Gi   → 4Gi
+```
+ALB controller quota is unchanged — its chart defaults
+(`requests.cpu=10m, requests.memory=64Mi`) leave the v0.37.0 quota
+generous already (live: 20m/500m, 128Mi/512Mi).
+
 ## [0.37.0] — 2026-04-25
 
 ### Added — `aws-load-balancer-controller` and `karpenter` namespaces in policy/quota coverage
