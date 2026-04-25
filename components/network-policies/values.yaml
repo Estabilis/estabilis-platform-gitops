@@ -31,17 +31,19 @@ components:
   node-exporter: true
   policy-reporter: true
   # AWS-only components — DEFAULT FALSE on purpose (defensive).
-  # The platform-root Application templates (aws-load-balancer-controller.yaml
-  # and karpenter.yaml in the upstream platform repo) gate the Apps themselves
-  # on `global.provider == "aws"`, so the namespaces never come into existence
-  # on Azure. To avoid this chart rendering NetworkPolicies for non-existent
-  # namespaces, defaults are `false` here. The upstream platform-root
-  # forwarding template (>= v0.27.0) only flips them to `true` when provider
-  # = aws AND the relevant feature flag (ingress_controller=alb /
-  # autoscaler=karpenter|hybrid) matches. Operators on older platform
-  # versions or non-AWS clusters can leave these alone.
+  # The platform-root Application templates (aws-load-balancer-controller.yaml,
+  # karpenter.yaml, metrics-server.yaml in the upstream platform repo) gate
+  # the Apps themselves on `global.provider == "aws"`, so the namespaces
+  # never come into existence on Azure. To avoid this chart rendering
+  # NetworkPolicies for non-existent namespaces, defaults are `false` here.
+  # The upstream platform-root forwarding template (>= v0.27.0) only flips
+  # them to `true` when provider = aws AND the relevant feature flag matches
+  # (ingress_controller=alb for ALB controller, autoscaler=karpenter|hybrid
+  # for karpenter; metrics-server is unconditional on AWS — Azure AKS provides
+  # natively).
   aws-load-balancer-controller: false
   karpenter: false
+  metrics-server: false
 
 policies:
   grafana:
@@ -77,6 +79,8 @@ policies:
   aws-load-balancer-controller:
     enabled: true
   karpenter:
+    enabled: true
+  metrics-server:
     enabled: true
 
 # Downstream escape hatch — additive NetworkPolicies declared by the client.

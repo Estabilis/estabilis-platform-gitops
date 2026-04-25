@@ -11,6 +11,45 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.37.2] — 2026-04-25
+
+### Added — `metrics-server` namespace coverage in policy/quota layers
+
+Audit follow-up to v0.37.1: `metrics-server` (AWS-only — Azure AKS
+ships it natively) had the same triple-layer gap that
+`aws-load-balancer-controller` and `karpenter` had before v0.37.0:
+- Not in `excluded-namespace-list` → Kyverno generated `default-deny-all`
+- Not in `network-policies` `components` / `policies` → no `allow-*`
+- Not in `resource-quotas` `components` / `namespaces` → no quota / limit
+
+Live cortex-eks observation prior to this fix:
+```
+$ kubectl -n metrics-server get networkpolicy,resourcequota,limitrange
+NAME               POD-SELECTOR   AGE
+default-deny-all   <none>         13h    ← only Kyverno-generated, no compensating allow
+```
+
+#### Changes
+
+1. **`components/kyverno-policies/templates/_helpers.tpl`** — add
+   `metrics-server` to `excluded-namespace-list` (alphabetically between
+   `kyverno` and `node-exporter`).
+2. **`components/network-policies/`** — declare `metrics-server` in
+   `components` (default `false`) + `policies` map + new
+   `allow-metrics-server` template. Allows kubelet egress (port 10250)
+   for resource metrics scrape, broad egress for cluster IP, ingress
+   from API server on chart default port 4443 (aggregated /apis/metrics.k8s.io)
+   and from grafana namespace for Alloy scraping.
+3. **`components/resource-quotas/`** — declare `metrics-server` in
+   `components` (default `false`) + `namespaces` map. Sized for chart
+   default of 2 HA replicas × 100m/200Mi (requests): hard
+   `requests.cpu=300m, requests.memory=600Mi, limits.cpu=1, limits.memory=1Gi`.
+
+The upstream platform-root provider-aware filter (introduced in
+`estabilis-platform v0.27.0`) already includes `metrics-server` in the
+`awsOnly` list, so on Azure these stay `false` and the chart skips
+rendering for the non-existent namespace.
+
 ## [0.37.1] — 2026-04-25
 
 ### Fixed — `karpenter` ResourceQuota undersized for chart defaults
