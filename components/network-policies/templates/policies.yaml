@@ -473,3 +473,72 @@ spec:
     # Kubernetes API (read policy results)
     - to: []
 {{- end }}
+---
+# =============================================================================
+# aws-load-balancer-controller namespace (AWS-only)
+# Needs broad egress: AWS APIs (ELB / EC2 / ACM / WAF / STS) over HTTPS
+# Ingress: webhook callbacks from API server (mutating + validating
+#          admission for Ingress / TargetGroupBinding / IngressClassParams)
+# =============================================================================
+{{- if and (index .Values.policies "aws-load-balancer-controller").enabled (ne (index .Values.components "aws-load-balancer-controller" | toString) "false") }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-aws-load-balancer-controller
+  namespace: aws-load-balancer-controller
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Webhook callbacks from API server (chart default port 9443)
+    - ports:
+        - protocol: TCP
+          port: 9443
+    # Metrics scraping from grafana namespace (Alloy)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: grafana
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (AWS APIs + Kubernetes API)
+    - to: []
+{{- end }}
+---
+# =============================================================================
+# karpenter namespace (AWS-only)
+# Needs broad egress: AWS APIs (EC2 / SQS / SSM / Pricing / STS) over HTTPS,
+#                     Kubernetes API (watch nodes/pods/nodepools)
+# Ingress: webhook callbacks from API server (NodePool / EC2NodeClass
+#          validating + mutating admission)
+# =============================================================================
+{{- if and (index .Values.policies "karpenter").enabled (ne (index .Values.components "karpenter" | toString) "false") }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-karpenter
+  namespace: karpenter
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Webhook callbacks from API server (chart default port 8443)
+    - ports:
+        - protocol: TCP
+          port: 8443
+    # Metrics scraping from grafana namespace (Alloy)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: grafana
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (AWS APIs + Kubernetes API)
+    - to: []
+{{- end }}
