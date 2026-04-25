@@ -5,11 +5,13 @@ Do NOT call directly in policy templates — use the full exclude helpers.
 */}}
 {{- define "kyverno-policies.excluded-namespace-list" }}
                 - argocd
+                - aws-load-balancer-controller
                 - cert-manager
                 - cnpg-system
                 - external-dns
                 - external-secrets
                 - grafana
+                - karpenter
                 - kube-node-lease
                 - kube-public
                 - kube-state-metrics

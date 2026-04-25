@@ -11,6 +11,74 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.37.0] — 2026-04-25
+
+### Added — `aws-load-balancer-controller` and `karpenter` namespaces in policy/quota coverage
+
+The `aws-load-balancer-controller` and `karpenter` namespaces were never
+listed in the platform's three exclusion/coverage layers, leaving them
+exposed to:
+- Kyverno background-generated `default-deny-all` NetworkPolicy from the
+  `default-deny-network-policy` ClusterPolicy (unconditional generate
+  rule, ignores the `kyverno.io/exclude` namespace label which only
+  affects admission webhooks).
+- `inject-pss-labels`, `require-limit-ranges`, `require-resource-quotas`
+  ClusterPolicies' Audit hits.
+- Zero `allow-*` NetworkPolicy compensating the deny-all (would block
+  AWS API egress on any cluster with NetworkPolicy enforcement enabled).
+- Zero `ResourceQuota` / `LimitRange` (no resource starvation guards).
+
+Today the live cortex-eks cluster is unaffected because EKS VPC CNI
+does not enforce NetworkPolicy by default and the Kyverno policies run
+in Audit mode. This release closes the gap proactively.
+
+#### Changes
+
+1. **`components/kyverno-policies/templates/_helpers.tpl`** — add
+   `aws-load-balancer-controller` and `karpenter` to the
+   `kyverno-policies.excluded-namespace-list` helper. Affects the four
+   ClusterPolicies that use it (`default-deny-network-policy`,
+   `inject-pss-labels`, `require-limit-ranges`, `require-resource-quotas`).
+2. **`components/network-policies/`** — declare both namespaces in the
+   `components` and `policies` maps + new `allow-aws-load-balancer-controller`
+   and `allow-karpenter` NetworkPolicy templates. Each allows broad egress
+   (AWS APIs over HTTPS + DNS + Kubernetes API), webhook callback ingress
+   on the chart's default port (9443 / 8443), and Alloy metrics scraping
+   from the `grafana` namespace.
+3. **`components/resource-quotas/`** — declare both namespaces in the
+   `components` and `namespaces` maps with quotas sized for the chart
+   defaults (ALB controller: 2 replicas × small footprint; karpenter:
+   2 replicas × moderate memory for cache).
+
+#### Provider-aware default-off (defensive)
+
+All three components default to `false` for `aws-load-balancer-controller`
+and `karpenter` in the chart values. The upstream platform-root
+forwarding template (>= v0.27.0, paired) only flips them to `true` on
+AWS deployments where the relevant feature flag is set
+(`ingress_controller=alb` for ALB controller, `autoscaler=karpenter|hybrid`
+for karpenter). On Azure the namespaces don't exist (Application
+templates are gated on `global.provider == "aws"`) and these toggles
+stay `false`, so this chart never tries to apply policies/quotas to
+non-existent namespaces.
+
+#### Pairing
+
+This release pairs with `estabilis-platform v0.27.0` which lands the
+filtered components forwarding in
+`bootstrap/platform-root/templates/network-policies.yaml` and
+`resource-quotas.yaml`. Operators bumping just one of the two:
+- `gitops v0.37.0` alone with `platform v0.26.x`: chart defaults
+  produce `false`, but upstream platform-root forwards `true` for these
+  components on every cluster regardless of provider, so the new
+  policies/quotas DO render — same outcome as before this release on
+  AWS, latent OutOfSync risk on Azure (workaround: explicit
+  `aws-load-balancer-controller: false, karpenter: false` in
+  `overrides/platform-root/values.yaml`).
+- `platform v0.27.0` alone with `gitops v0.36.1`: provider-aware
+  filter applies but the gitops chart never had ALB/karpenter coverage.
+  No regression.
+
 ## [0.36.1] — 2026-04-25
 
 ### Re-released as 0.36.1

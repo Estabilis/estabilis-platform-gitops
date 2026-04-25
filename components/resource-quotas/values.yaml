@@ -29,6 +29,15 @@ components:
   external-dns: true
   node-exporter: true
   kube-state-metrics: true
+  # AWS-only — DEFAULT FALSE on purpose.
+  # Same rationale as the network-policies chart: the upstream platform-root
+  # Application templates gate the Apps on `global.provider == "aws"`, so
+  # these namespaces don't exist on Azure. Defaults are `false` so this
+  # chart doesn't try to apply ResourceQuota / LimitRange to non-existent
+  # namespaces. Upstream platform-root (>= v0.27.0) only flips them to
+  # `true` on AWS deployments where the relevant feature flag is set.
+  aws-load-balancer-controller: false
+  karpenter: false
 
 defaults:
   hard:
@@ -178,5 +187,27 @@ namespaces:
       requests.memory: 512Mi
       limits.cpu: "2"
       limits.memory: 1Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
+  # AWS-only — namespaces only exist on AWS clusters with the relevant
+  # feature flag (ingress_controller=alb for ALB controller, autoscaler=
+  # karpenter|hybrid for karpenter). Activated by `components.{ns}=true`
+  # forwarded by the upstream platform-root.
+  aws-load-balancer-controller:
+    enabled: true
+    hard:
+      requests.cpu: "500m"
+      requests.memory: 512Mi
+      limits.cpu: "2"
+      limits.memory: 1Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
+  karpenter:
+    enabled: true
+    hard:
+      requests.cpu: "500m"
+      requests.memory: 1Gi
+      limits.cpu: "2"
+      limits.memory: 2Gi
       pods: "10"
       persistentvolumeclaims: "5"
