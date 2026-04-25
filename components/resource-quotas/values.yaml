@@ -204,10 +204,13 @@ namespaces:
       persistentvolumeclaims: "5"
   karpenter:
     enabled: true
+    # Sized for the karpenter chart defaults: 2 replicas × 500m CPU + 1Gi
+    # memory each (requests). Quota gives 50% headroom over the steady
+    # state to allow rolling updates (3 pods briefly during surge).
     hard:
-      requests.cpu: "500m"
-      requests.memory: 1Gi
-      limits.cpu: "2"
-      limits.memory: 2Gi
+      requests.cpu: "1500m"
+      requests.memory: 3Gi
+      limits.cpu: "4"
+      limits.memory: 4Gi
       pods: "10"
       persistentvolumeclaims: "5"
