@@ -1,0 +1,62 @@
+# AWS-specific overlay for HashiCorp Vault.
+# Loaded in addition to vault.yaml when global.provider=aws.
+#
+# Auto-unseal: AWS KMS via `seal "awskms"` stanza in the Raft HCL config.
+# Identity: IRSA — the SA gets annotated with the IAM role ARN provisioned
+# by `providers/aws/vault.tf` → module.vault_irsa. Role grants:
+#   - kms:Encrypt / kms:Decrypt / kms:DescribeKey on the dedicated unseal key
+#   - s3:PutObject / s3:GetObject / s3:ListBucket on the snapshot bucket
+#
+# The `kms_key_id` and `region` placeholders below are replaced by helm
+# parameters injected by `bootstrap/platform-root/templates/vault.yaml`
+# from the `platform-infrastructure-sensitive` Secret (terraform-managed).
+
+server:
+  # PVC storage class — gp3 default on EKS clusters.
+  dataStorage:
+    storageClass: gp3
+
+  # IRSA annotation — role ARN injected via helm.parameters from
+  # platform-root (`server.serviceAccount.annotations.eks\.amazonaws\.com/role-arn`).
+  serviceAccount:
+    create: true
+
+  ha:
+    raft:
+      # Provider-specific Raft + seal config.
+      # ${vault_kms_key_id} and ${vault_kms_region} are replaced by helm
+      # parameters from platform-root.
+      config: |
+        ui = true
+
+        listener "tcp" {
+          tls_disable     = 1
+          address         = "[::]:8200"
+          cluster_address = "[::]:8201"
+        }
+
+        storage "raft" {
+          path = "/vault/data"
+
+          retry_join {
+            leader_api_addr = "http://vault-0.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-1.vault-internal:8200"
+          }
+          retry_join {
+            leader_api_addr = "http://vault-2.vault-internal:8200"
+          }
+        }
+
+        seal "awskms" {
+          region     = "VAULT_KMS_REGION_PLACEHOLDER"
+          kms_key_id = "VAULT_KMS_KEY_ID_PLACEHOLDER"
+        }
+
+        telemetry {
+          prometheus_retention_time = "24h"
+          disable_hostname          = true
+        }
+
+        service_registration "kubernetes" {}
