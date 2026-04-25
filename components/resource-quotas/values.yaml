@@ -41,6 +41,10 @@ components:
   karpenter: false
   metrics-server: false
 
+  # Multi-provider opt-in — DEFAULT FALSE. Activated when
+  # vault_enabled = true in terraform.tfvars.
+  vault: false
+
 defaults:
   hard:
     requests.cpu: "1"
@@ -225,5 +229,18 @@ namespaces:
       requests.memory: 600Mi
       limits.cpu: "1"
       limits.memory: 1Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
+  vault:
+    enabled: true
+    # Sized for 3-replica Raft HA at chart defaults (50m/128Mi requests,
+    # 250m/256Mi limits per pod). 50% headroom over steady state for
+    # rolling-update surges (4 pods briefly).
+    # PVC count = 3 (one per Raft replica, gp3/Premium_LRS).
+    hard:
+      requests.cpu: "300m"
+      requests.memory: 600Mi
+      limits.cpu: "1500m"
+      limits.memory: 1500Mi
       pods: "10"
       persistentvolumeclaims: "5"

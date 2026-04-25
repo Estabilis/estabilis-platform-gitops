@@ -544,6 +544,63 @@ spec:
 {{- end }}
 ---
 # =============================================================================
+# vault namespace (multi-provider — auto-unseal AWS KMS / Azure Key Vault)
+# Egress: cloud unseal endpoint (KMS / Key Vault), backup storage (S3 /
+#         Azure Storage), Kubernetes API (service-registration), inter-pod
+#         Raft cluster traffic on port 8201.
+# Ingress: Vault API (port 8200) from anywhere on the cluster (Vault is
+#          a cluster-scoped secret store), inter-pod Raft on 8201,
+#          Alloy metrics scraping from grafana namespace.
+# =============================================================================
+{{- if and (index .Values.policies "vault").enabled (ne (index .Values.components "vault" | toString) "false") }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-vault
+  namespace: vault
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Vault API from any pod in the cluster (Vault is the cluster-scoped
+    # secret store; clients in any namespace must reach it on 8200).
+    - ports:
+        - protocol: TCP
+          port: 8200
+    # Inter-pod Raft cluster traffic on 8201 (HA quorum + log replication)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: vault
+      ports:
+        - protocol: TCP
+          port: 8201
+    # Metrics scraping from grafana namespace (Alloy → /v1/sys/metrics)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: grafana
+      ports:
+        - protocol: TCP
+          port: 8200
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # Inter-pod Raft (egress side)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: vault
+      ports:
+        - protocol: TCP
+          port: 8201
+    # All egress (cloud unseal API, backup storage, Kubernetes API)
+    - to: []
+{{- end }}
+---
+# =============================================================================
 # metrics-server namespace (AWS-only — Azure AKS provides metrics-server natively)
 # Needs egress: kubelet on every node (port 10250) for resource metrics
 #               + Kubernetes API for the aggregated /apis/metrics.k8s.io

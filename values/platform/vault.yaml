@@ -1,0 +1,82 @@
+# Provider-agnostic value overlay for HashiCorp Vault (chart `vault` 0.29.x).
+#
+# Loaded by `bootstrap/platform-root/templates/vault.yaml` Application as
+# `$values/values/platform/vault.yaml`. Provider-specific extensions
+# (auto-unseal `seal` stanza, ServiceAccount IRSA / Workload Identity
+# annotations) live in `vault-aws.yaml` / `vault-azure.yaml`.
+#
+# Foundation scope: chart deployment + 3-replica Raft HA + cloud auto-unseal
+# only. Bootstrap (auth methods, policies, KV mount, ClusterSecretStore
+# wiring) is intentionally deferred to follow-up releases. Vault comes up
+# sealed/auto-unsealed (depending on cloud unseal config) but
+# NOT-INITIALIZED. Operator runs `vault operator init` manually after the
+# Application syncs.
+
+# --- Global overlay metadata ---
+commonLabels:
+  estabilis.io/component: vault
+  estabilis.io/managed-by: platform
+
+# --- Sidecar injector OFF ---
+# We use ESO (or future direct-Vault clients) — never Vault Agent injection.
+# Disabling avoids an unnecessary mutating webhook and shaves the surface for
+# admission timeouts.
+injector:
+  enabled: false
+
+server:
+  # 3 replicas, real Raft quorum (one pod per node enforced via affinity).
+  replicas: 3
+
+  # Disable the post-install test job. It runs `vault status` but KMS / KV
+  # unseal may not have completed at job time, producing a false negative
+  # and helm rollback. Vault readiness is verified by the readiness probes
+  # the chart already configures.
+  tests:
+    enabled: false
+
+  # Conservative resource floor; tune via downstream override.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+  # Force one pod per node — Raft needs real quorum, not 3 pods on one node.
+  affinity: |
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: vault
+              component: server
+          topologyKey: kubernetes.io/hostname
+
+  # Persistent Raft data — 10Gi per replica.
+  dataStorage:
+    enabled: true
+    size: 10Gi
+    # storageClass overridden per-provider (gp3 on AWS, default on Azure).
+
+  # Standalone mode OFF — we run HA Raft.
+  standalone:
+    enabled: false
+
+  ha:
+    enabled: true
+    replicas: 3
+    raft:
+      enabled: true
+      setNodeId: true
+      # `config` is overridden in vault-aws.yaml / vault-azure.yaml to
+      # inject the provider-specific `seal` stanza. The base shape (listener,
+      # storage, telemetry, service_registration) is identical across
+      # providers.
+
+# --- UI ---
+# Top-level chart key, NOT under server. Nesting it would silently no-op.
+ui:
+  enabled: true
+  serviceType: ClusterIP
