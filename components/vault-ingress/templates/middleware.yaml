@@ -1,0 +1,226 @@
+{{- /*
+  ADR 0014 — one Ingress (+ Middlewares for Traefik / + ALB annotations
+  for AWS) per enabled exposure profile.
+
+  Backend: vault-ui (port 8200) in the vault namespace. All
+  resources live in the vault namespace to share Traefik's cross-namespace
+  Middleware reference capability (Traefik path) or to keep the
+  Ingress co-located with the backend Service (ALB path).
+
+  The chart branches on `$exp.ingress_class`:
+    - "traefik" / "traefik-internal" → Traefik IngressRoute pattern
+      with Middlewares for ipAllowList. basic_auth is NOT supported
+      (Vault has its own UI auth — would double-auth) and the chart
+      fails loud if a profile sets it.
+    - "alb" → AWS Load Balancer Controller pattern with
+      `alb.ingress.kubernetes.io/*` annotations.
+
+  Default healthcheck path tuned for Vault: `/v1/sys/health?standbyok=true
+  &sealedcode=200&uninitcode=200`. The flags keep the LB routing traffic
+  to standby pods (default would 429), to sealed pods (so the operator
+  can reach the API to unseal), and to uninitialized pods (so the
+  operator can hit `vault operator init` via the LB).
+*/ -}}
+{{- $raw := .Values.exposuresJson | default "{}" -}}
+{{- $jsonStr := $raw -}}
+{{- if and $raw (not (or (hasPrefix "{" $raw) (hasPrefix "[" $raw))) }}
+  {{- $jsonStr = b64dec $raw }}
+{{- end }}
+{{- $exposures := fromJson $jsonStr -}}
+{{- range $profile, $exp := $exposures }}
+{{- if $exp.enabled }}
+{{- $isALB := eq $exp.ingress_class "alb" }}
+
+{{- /* Vault has its own UI authentication — basic_auth would double-auth.
+       Fail loud regardless of ingress class. */}}
+{{- if $exp.basic_auth }}
+{{- fail (printf "vault_exposures.%s: basic_auth=true is not supported (Vault has its own UI auth — basic_auth would double-auth)." $profile) }}
+{{- end }}
+
+{{- if and $isALB (eq $exp.alb_certificate_source "acm") (eq (default "" $.Values.global.acmCertificateArn) "") }}
+{{- fail (printf "vault_exposures.%s: alb_certificate_source=acm but global.acmCertificateArn is empty. Set acm_enabled=true on the platform Terraform module so an ACM cert is provisioned and its ARN auto-flows to this chart, or pick a different alb_certificate_source." $profile) }}
+{{- end }}
+
+{{- if and $isALB (not (has $exp.alb_certificate_source (list "acm" "cert-manager"))) }}
+{{- fail (printf "vault_exposures.%s: alb_certificate_source=%q is not recognized. Valid values: 'acm' (recommended — ALB Controller consumes ACM cert directly), 'cert-manager' (NOT supported by stock ALB Controller — kept for forward compatibility with future syncer integrations)." $profile $exp.alb_certificate_source) }}
+{{- end }}
+
+{{- if $isALB }}
+{{- /* ============================ ALB BRANCH ============================ */}}
+{{- $hcPath := default "/v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200" $exp.alb_healthcheck_path }}
+{{- $useACM := eq $exp.alb_certificate_source "acm" }}
+---
+{{- if not $useACM }}
+{{- /* cert-manager Certificate (DNS-01 issued); ALB references via Ingress TLS spec */}}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vault-{{ $profile }}-tls
+  namespace: vault
+  {{- include "estabilis.metadata" $ | nindent 2 }}
+spec:
+  secretName: vault-{{ $profile }}-tls
+  issuerRef:
+    name: {{ $exp.issuer | default "letsencrypt-production" | quote }}
+    kind: ClusterIssuer
+  dnsNames:
+    - {{ $exp.host | quote }}
+---
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vault-{{ $profile }}
+  namespace: vault
+  {{- include "estabilis.metadata" $ | nindent 2 }}
+  annotations:
+    {{- /* Core ALB annotations */}}
+    alb.ingress.kubernetes.io/scheme: {{ $exp.alb_scheme | quote }}
+    alb.ingress.kubernetes.io/target-type: {{ $exp.alb_target_type | quote }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-policy: {{ $exp.alb_ssl_policy | quote }}
+    alb.ingress.kubernetes.io/healthcheck-path: {{ $hcPath | quote }}
+    {{- /* Group routes multiple Ingresses behind ONE shared ALB —
+          significant cost saver when several apps are exposed. */}}
+    alb.ingress.kubernetes.io/group.name: {{ $exp.alb_group | quote }}
+    {{- if $useACM }}
+    alb.ingress.kubernetes.io/certificate-arn: {{ $.Values.global.acmCertificateArn | quote }}
+    {{- end }}
+    {{- if $exp.allowed_cidrs }}
+    {{- /* ALB listener-rule condition (per-service). Restricts source IPs
+          at the listener level — different mechanism from Traefik
+          Middlewares but equivalent end result. */}}
+    alb.ingress.kubernetes.io/conditions.vault-ui: |-
+      [{"field":"source-ip","sourceIpConfig":{"values":[{{- $cidrs := list -}}{{- range splitList "," $exp.allowed_cidrs -}}{{- $cidrs = append $cidrs (printf "%q" (trim .)) -}}{{- end -}}{{ join "," $cidrs }}]}}]
+    {{- end }}
+    {{- if hasKey $.Values.global "dnsProvider" }}
+    {{- if eq $.Values.global.dnsProvider "cloudflare" }}
+    {{- /* Cloudflare DNS-only mode (orange cloud OFF) — preserves real
+          ALB IP for source-IP allowlist to work. With proxy ON, every
+          request appears to originate from Cloudflare CIDRs. */}}
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: {{ $exp.alb_cloudflare_proxied | quote }}
+    {{- end }}
+    {{- end }}
+    external-dns.alpha.kubernetes.io/hostname: {{ $exp.host | quote }}
+spec:
+  ingressClassName: alb
+  rules:
+    - host: {{ $exp.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vault-ui
+                port:
+                  number: 8200
+  {{- if not $useACM }}
+  tls:
+    - secretName: vault-{{ $profile }}-tls
+      hosts:
+        - {{ $exp.host | quote }}
+  {{- end }}
+{{- else }}
+{{- /* ========================== TRAEFIK BRANCH ========================== */}}
+{{- $mwIPName := printf "vault-%s-ipallowlist" $profile }}
+{{- $mwAuthName := printf "vault-%s-auth" $profile }}
+---
+{{- if $exp.allowed_cidrs }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $mwIPName }}
+  namespace: vault
+  {{- include "estabilis.metadata" $ | nindent 2 }}
+spec:
+  ipAllowList:
+    sourceRange:
+      {{- range splitList "," $exp.allowed_cidrs }}
+      - {{ trim . | quote }}
+      {{- end }}
+---
+{{- end }}
+{{- if $exp.basic_auth }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $mwAuthName }}
+  namespace: vault
+  {{- include "estabilis.metadata" $ | nindent 2 }}
+spec:
+  basicAuth:
+    secret: {{ $mwAuthName }}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: {{ $mwAuthName }}
+  namespace: vault
+  {{- include "estabilis.metadata" $ | nindent 2 }}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: platform-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: {{ $mwAuthName }}
+    creationPolicy: Owner
+  data:
+    - secretKey: users
+      remoteRef:
+        key: {{ printf "%s-%s" $.Values.kvSecretPrefix $profile | quote }}
+---
+{{- end }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vault-{{ $profile }}-tls
+  namespace: vault
+  {{- include "estabilis.metadata" $ | nindent 2 }}
+spec:
+  secretName: vault-{{ $profile }}-tls
+  issuerRef:
+    name: {{ $exp.issuer | default "letsencrypt-production" | quote }}
+    kind: ClusterIssuer
+  dnsNames:
+    - {{ $exp.host | quote }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vault-{{ $profile }}
+  namespace: vault
+  {{- include "estabilis.metadata" $ | nindent 2 }}
+  annotations:
+    {{- $mws := list }}
+    {{- if $exp.allowed_cidrs }}
+    {{- $mws = append $mws (printf "vault-%s@kubernetescrd" $mwIPName) }}
+    {{- end }}
+    {{- if $exp.basic_auth }}
+    {{- $mws = append $mws (printf "vault-%s@kubernetescrd" $mwAuthName) }}
+    {{- end }}
+    {{- if $mws }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ join "," $mws | quote }}
+    {{- end }}
+    external-dns.alpha.kubernetes.io/hostname: {{ $exp.host | quote }}
+spec:
+  ingressClassName: {{ $exp.ingress_class | default "traefik" | quote }}
+  rules:
+    - host: {{ $exp.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vault-ui
+                port:
+                  number: 8200
+  tls:
+    - secretName: vault-{{ $profile }}-tls
+      hosts:
+        - {{ $exp.host | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
