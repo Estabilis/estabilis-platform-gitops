@@ -1,0 +1,27 @@
+# HashiCorp Vault external ingress — ADR 0014 (multi-exposure model).
+#
+# Mirror of grafana-ingress/values.yaml. Each entry in exposures becomes a
+# K8s Ingress (+ Middlewares for Traefik / + ALB annotations for AWS) +
+# optional cert-manager Certificate. The Ingress points at the `vault-ui`
+# Service on port 8200 (the Vault chart's UI service).
+#
+# Vault has its own UI authentication — `basic_auth` is unsupported
+# (would double-auth) and the chart fails loud if a profile sets it.
+
+# Injected by platform-root as a JSON string parameter from
+# `vault.exposuresJson` in the platform-infrastructure-sensitive Secret.
+# Source of truth: `var.vault_exposures` in providers/{aws,azure}/variables.tf
+# resolved via `local.vault_exposures_resolved` in providers/*/main.tf.
+exposuresJson: "{}"
+
+# Default Vault health-check path consumed when an exposure profile leaves
+# `alb_healthcheck_path` empty. `standbyok=true` returns 200 from standby
+# pods (default would 429); `sealedcode=200` + `uninitcode=200` keep the
+# LB routing traffic to a fresh Vault that hasn't been initialized yet —
+# operator can run `vault operator init` via the LB.
+defaultHealthcheckPath: "/v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200"
+
+# `global` block populated by helm.parameters from platform-root.
+global:
+  acmCertificateArn: ""
+  dnsProvider: ""

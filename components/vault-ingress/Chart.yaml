@@ -1,0 +1,6 @@
+apiVersion: v2
+name: vault-ingress
+description: HashiCorp Vault external ingress — ADR 0014 multi-exposure model (mirror of grafana-ingress, vault-specific backend + healthcheck)
+version: 0.1.0
+appVersion: "0.1.0"
+type: application

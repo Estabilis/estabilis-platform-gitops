@@ -11,6 +11,38 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.38.2] — 2026-04-26
+
+### Added — `components/vault-ingress/` (migrated from platform repo per ADR 0002)
+
+The `vault-ingress` chart was originally created in
+`estabilis-platform/core/components/vault-ingress/` (v0.28.2). Per
+ADR 0002 (gitops chart consolidation, Phase 3 target), all platform
+component charts must live in this repo, with the platform repo
+keeping only the bootstrap Application templates that reference them.
+
+This release moves the chart to its correct home before any client
+takes a hard dependency on the legacy path.
+
+#### Changes
+
+- **NEW**: `components/vault-ingress/` (Chart.yaml, values.yaml,
+  templates/_helpers.tpl, templates/middleware.yaml). Byte-identical
+  copy of what shipped in `estabilis-platform v0.28.2`.
+- The platform repo's `bootstrap/platform-root/templates/vault-ingress.yaml`
+  is updated in `estabilis-platform v0.28.3` (paired) to reference the
+  new path: `repoURL: estabilis-platform-gitops.git` + `path: components/vault-ingress`.
+
+#### Migration
+
+For clusters running `estabilis-platform v0.28.2`:
+- Bump platform to `v0.28.3` (paired with this release). The
+  Application's source repoURL changes from platform to gitops; ArgoCD
+  handles the source change transparently — same chart content, no
+  pod restart, no Ingress recreation.
+
+For deployments not yet using Vault: no-op.
+
 ## [0.38.1] — 2026-04-25
 
 ### Fixed — Vault chart overlays cleaned up (no more dead-code placeholders, no more gp3 default)
