@@ -50,7 +50,18 @@ spec:
         estabilis.io/managed-by: client-gitops
         estabilis.io/component: "{{`{{ .path.basename }}`}}"
     spec:
-      project: workload-infra
+      # Wrapper Application lives on the hub argocd ns and targets the
+      # workload cluster via the inner Application. Wrapper itself is
+      # platform infrastructure (deployed by workload-bootstrap), so it
+      # uses workload-client-infra (ADR 0027 — renamed from `workload-infra`
+      # to harmonize the (cluster, owner, scope) taxonomy).
+      #
+      # The INNER Application (declared by the client at
+      # platforms/{deploymentId}/apps/{name}/application.yaml) sets its
+      # OWN project independently of this wrapper:
+      #   • app-* namespace → project: workload-apps
+      #   • system namespace + cluster CRDs/RBAC → project: workload-client-infra
+      project: workload-client-infra
       sources:
         # 1) The client's app directory — contains application.yaml
         #    which ArgoCD applies as raw manifest (the Application itself
@@ -67,9 +78,19 @@ spec:
         server: https://kubernetes.default.svc
         namespace: argocd
       syncPolicy:
+        {{- /*
+          Auto-sync is opt-out via .Values.clientApps.autoSync (default true).
+          When false, generated Applications stay OutOfSync until the
+          operator triggers `argocd app sync` manually. Useful for production
+          environments that want explicit gating on every workload deploy
+          and during platform bootstrap to avoid races where workloads
+          retry-loop while platform components are still coming up.
+        */}}
+        {{- if .Values.clientApps.autoSync }}
         automated:
           prune: true
           selfHeal: true
+        {{- end }}
         retry:
           limit: 10
           backoff:
