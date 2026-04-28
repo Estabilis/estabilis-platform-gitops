@@ -51,14 +51,30 @@ jobs:
             echo "Not a release commit — skipping."
           fi
 
-      - name: Guard against duplicate tag
+      - name: Guard against tag drift (idempotent)
         if: steps.detect.outputs.should_release == 'true'
+        id: tag_check
         run: |
           set -euo pipefail
           version="${{ steps.detect.outputs.version }}"
+
           if git rev-parse "refs/tags/$version" >/dev/null 2>&1; then
-            echo "::error::Tag $version already exists. Either the release commit is being replayed, or a manual tag was created out of band."
-            exit 1
+            tag_sha=$(git rev-parse "refs/tags/${version}^{}")
+            head_sha=$(git rev-parse HEAD)
+            if [ "$tag_sha" = "$head_sha" ]; then
+              # Tag exists and points at the release commit. Possible causes:
+              # workflow re-run, operator pre-created the tag, or partial
+              # previous run. Either way we can skip tag creation and continue
+              # to the Release step (which is idempotent itself if the tag
+              # has no Release page yet).
+              echo "Tag $version already points at HEAD ($head_sha) — skipping tag creation, continuing to Release."
+              echo "skip_tag_creation=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::error::Tag $version exists but points at $tag_sha, not at the release commit $head_sha. Drift detected — refusing to proceed. Resolve by either deleting the tag (if wrong) or pushing a new release commit."
+              exit 1
+            fi
+          else
+            echo "skip_tag_creation=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Extract CHANGELOG section
@@ -93,7 +109,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create annotated tag
-        if: steps.detect.outputs.should_release == 'true'
+        if: steps.detect.outputs.should_release == 'true' && steps.tag_check.outputs.skip_tag_creation != 'true'
         env:
           VERSION: ${{ steps.detect.outputs.version }}
           BODY: ${{ steps.changelog.outputs.body }}
@@ -116,6 +132,13 @@ jobs:
           BODY: ${{ steps.changelog.outputs.body }}
         run: |
           set -euo pipefail
+          # Idempotent: if Release already exists (e.g. operator created it
+          # manually after a prior failed run), skip with a notice instead
+          # of failing the workflow.
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "::notice::GitHub Release $VERSION already exists — skipping creation."
+            exit 0
+          fi
           gh release create "$VERSION" \
             --title "$VERSION" \
             --notes "$BODY" \
