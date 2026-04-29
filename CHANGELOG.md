@@ -11,6 +11,47 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.39.1] — 2026-04-29
+
+### Fixed — `allow-metrics-server` NetworkPolicy port mismatch (AWS-only)
+
+The `allow-metrics-server` NetworkPolicy in `components/network-policies/templates/policies.yaml`
+hardcoded `port: 4443` for ingress traffic from the API server. The
+upstream metrics-server helm chart consumed by
+`estabilis-platform/bootstrap/platform-root/templates/metrics-server.yaml`
+serves the aggregated API on **port 10250** (`--secure-port=10250` in
+the deployment args; matches `containerPort.https`). With the policy
+restricting ingress to a port the pod did not listen on, the API
+server's discovery probe to `v1beta1.metrics.k8s.io` failed with
+`context deadline exceeded`, leaving the APIService stuck at
+`Available: False (FailedDiscoveryCheck)` and breaking `kubectl top`,
+HPA, and any controller that reads the Resource Metrics API.
+
+This bug affects **AWS deployments only**. Azure (AKS) clusters provide
+metrics-server natively as part of the managed control plane, so the
+NetworkPolicy is gated off (`components.metrics-server: false` and the
+metrics-server Application is also AWS-only via
+`{{ if eq .Values.global.provider "aws" }}`).
+
+The bug was introduced in v0.37.2 (commit `a9f3d6a` —
+`fix: cover metrics-server namespace in policy/quota layers`). Until
+the cortex-platform-aws-us-east-1-prd upstart on 2026-04-29, no AWS
+PRD environment had run both metrics-server (Wave 2) and network-policies
+(Wave 15) end-to-end, so the regression went unnoticed.
+
+Fix:
+
+- `components/network-policies/templates/policies.yaml` line 626:
+  `port: 4443` → `port: 10250`
+- Updated inline comments on lines 607 and 623 to reflect the chart's
+  actual port and document why this block must track the chart.
+
+### Files
+
+- `components/network-policies/templates/policies.yaml`
+- `workload-bootstrap/Chart.yaml` (`version` + `appVersion` → 0.39.1)
+- `workload-bootstrap/values.yaml` (`repoVersion` → v0.39.1)
+
 ## [0.39.0] — 2026-04-28
 
 ### Changed — `client-apps` ApplicationSet aligns with ADR 0027 taxonomy v2
