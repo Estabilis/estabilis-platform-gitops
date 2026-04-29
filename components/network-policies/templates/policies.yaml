@@ -604,7 +604,7 @@ spec:
 # metrics-server namespace (AWS-only — Azure AKS provides metrics-server natively)
 # Needs egress: kubelet on every node (port 10250) for resource metrics
 #               + Kubernetes API for the aggregated /apis/metrics.k8s.io
-# Ingress: API server requests through the aggregated API (port 4443 by default)
+# Ingress: API server requests through the aggregated API (port 10250)
 #          + Alloy metrics scraping
 # =============================================================================
 {{- if and (index .Values.policies "metrics-server").enabled (ne (index .Values.components "metrics-server" | toString) "false") }}
@@ -620,10 +620,14 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # API server -> metrics-server aggregated API (chart default port 4443)
+    # API server -> metrics-server aggregated API. The metrics-server chart
+    # exposes the aggregated API on port 10250 (set via --secure-port=10250
+    # in the deployment args; matches containerPort.https). Earlier chart
+    # versions defaulted to 4443 — this block hardcoded 4443 historically
+    # and must track the chart's actual port.
     - ports:
         - protocol: TCP
-          port: 4443
+          port: 10250
     # Metrics scraping from grafana namespace (Alloy)
     - from:
         - namespaceSelector:
