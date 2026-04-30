@@ -1,0 +1,25 @@
+{{- /*
+Universal SelfSigned ClusterIssuer for in-cluster TLS where ACME is not
+applicable (admission webhook certs, internal mTLS, bootstrap CAs).
+
+Created unconditionally because both Azure and AWS have at least one
+component (external-secrets webhook) that benefits from delegating cert
+management to cert-manager + cainjector instead of the chart's bundled
+cert-controller — which uses Update operations and races with ArgoCD's
+ServerSideApply on the cluster-scoped ValidatingWebhookConfiguration.
+
+Consumers reference this via `webhook.certManager.cert.issuerRef`:
+  kind: ClusterIssuer
+  name: selfsigned
+
+See estabilis-platform external-secrets.yaml template (>= v0.36.3) for
+the canonical consumer pattern, and ADR / postmortem
+2026-04-30 cortex prd for the full diagnosis.
+*/}}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  selfSigned: {}
