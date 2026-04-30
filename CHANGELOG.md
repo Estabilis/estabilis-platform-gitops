@@ -11,6 +11,50 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.39.3] — 2026-04-30
+
+### Added — Vault provider in `cluster-secret-store` (opt-in `app-secret-store`)
+
+`components/cluster-secret-store/templates/cluster-secret-store-vault.yaml`:
+new template that renders a Vault-backed `ClusterSecretStore` named
+`app-secret-store` ONLY when `.Values.vault.enabled: true`. Default is
+off — chart stays quiet for deployments that don't run Vault.
+
+When activated (passed by platform-root from `components.vault: true`,
+the same toggle that activates the Vault Application), the chart
+renders an additional ClusterSecretStore alongside the existing
+`platform-secret-store` (AWS SM / Azure KV). Two stores let apps pick
+where their secrets live:
+
+- `platform-secret-store` (provider=aws|azure) → platform infra
+  secrets bootstrapped by Terraform (grafana-db, argocd-redis,
+  openai-api-key, etc).
+- `app-secret-store` (provider=vault) → workload application secrets
+  curated by the platform team out-of-band.
+
+Driven by cortex prd 2026-04-30 postmortem: 19 ExternalSecrets in
+`app-*` namespaces were stuck on `SecretSyncedError` because the
+cortex `common-app` Helm chart hardcodes
+`externalSecrets.storeName: app-secret-store` as canonical, but the
+chart had branches only for AWS / Azure — no Vault counterpart. The
+`common-app` Chart.yaml description even says "Platform layer
+provisions the ClusterSecretStore pointing to the chosen backend",
+but that promise was unfulfilled until this release.
+
+Defaults assume in-cluster Vault deployed via the HashiCorp chart at
+`vault.vault.svc.cluster.local:8200`, KV-v2 at `secret/`, kubernetes
+auth method with role `external-secrets` (which `vault-bootstrap.sh`
+provisions). Override any of these in downstream values when running
+a remote / external Vault.
+
+### Files
+
+- `components/cluster-secret-store/templates/cluster-secret-store-vault.yaml` (NEW)
+- `components/cluster-secret-store/values.yaml` (added `vault:` block, default `enabled: false`)
+- `workload-bootstrap/Chart.yaml` (`version` + `appVersion` → 0.39.3)
+- `workload-bootstrap/values.yaml` (`repoVersion` → v0.39.3)
+- `CHANGELOG.md` (this entry)
+
 ## [0.39.2] — 2026-04-30
 
 ### Added — Universal `selfsigned` ClusterIssuer in `cert-manager-config`
