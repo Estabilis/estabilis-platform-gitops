@@ -11,6 +11,37 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.39.4] — 2026-04-30
+
+### Fixed — `allow-grafana` NetworkPolicy now allows AWS ALB ingress
+
+`components/network-policies/templates/policies.yaml`: the `allow-grafana`
+NetworkPolicy was Azure-first, with three ingress rules all keyed on
+`namespaceSelector` (traefik / grafana / any-ns). On AWS the ingress
+controller is the ALB Controller with `target-type: ip`, which delivers
+traffic from the ALB's VPC ENIs directly to the pod IP, **outside any
+K8s namespace scope**. NetworkPolicy `namespaceSelector` rules don't
+match that source, so the ALB's health-checks and proxied requests both
+hit the implicit default-deny on `policyTypes: [Ingress]` and timed out
+(observed: ALB Target Group reports `Target.Timeout`, browser sees
+HTTP 504 after 10s).
+
+The fix mirrors the existing `allow-vault` pattern in this same file:
+a port-restricted allow-all source rule on the app's HTTP port (3000),
+plus the namespace-selectors for in-cluster comms preserved.
+
+Azure impact: zero. The removed `namespaceSelector: traefik` rule was
+strictly redundant with the kept `namespaceSelector: {}` — the wildcard
+selector covers any namespace including `traefik`. Loki/Mimir/Tempo/
+Alloy/Pyroscope intra-namespace and cross-namespace traffic continues
+to be allowed by the unchanged namespace-selector rules — port-agnostic,
+so internal Loki:3100/Mimir:8080/Tempo:3200/etc. communication is not
+affected.
+
+Validated end-to-end on cortex EKS prd: ALB Target Group flipped from
+`Target.Timeout` to `healthy` within 10s of the patch; `/`, `/login`,
+`/api/health` all return 200/302 in ~0.5s instead of 10s+504.
+
 ## [0.39.3] — 2026-04-30
 
 ### Added — Vault provider in `cluster-secret-store` (opt-in `app-secret-store`)

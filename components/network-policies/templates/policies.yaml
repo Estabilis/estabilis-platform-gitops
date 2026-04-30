@@ -15,17 +15,21 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Allow from traefik (ingress controller)
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: traefik
-    # Allow internal comms (loki/mimir/tempo/alloy/grafana)
+    # Grafana HTTP (port 3000) — open to ALB ENIs (AWS, target-type=ip
+    # delivers traffic from the ALB's VPC ENIs, outside K8s namespace
+    # scope) and to in-cluster callers (Traefik in Azure, alloy from
+    # any ns, intra-namespace components). Mirrors the allow-vault
+    # pattern: port-restricted allow-all source.
+    - ports:
+        - protocol: TCP
+          port: 3000
+    # Internal stack: loki/mimir/tempo/alloy/pyroscope intra-namespace
+    # (port-agnostic — Loki:3100, Mimir:8080, Tempo:3200/4317 etc).
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: grafana
-    # Allow from all namespaces (alloy receives metrics from all pods)
+    # Hub Alloy receives metrics from pods in any cluster namespace.
     - from:
         - namespaceSelector: {}
   egress:
