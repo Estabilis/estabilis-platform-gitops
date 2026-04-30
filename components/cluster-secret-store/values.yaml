@@ -64,3 +64,56 @@ aws:
 #   - name: platform-secret-store
 #     region: us-east-1
 stores: []
+
+# ---------------------- Vault provider --------------------------------
+#
+# OPT-IN. When `vault.enabled: true`, the chart renders a Vault-backed
+# `app-secret-store` ClusterSecretStore IN ADDITION to the AWS or Azure
+# `platform-secret-store` rendered by the provider templates above.
+#
+# Default off — most deployments don't run Vault. Activated by passing
+# `vault.enabled=true` from platform-root, which it does only when
+# `components.vault: true` in the platform-root values (the same
+# toggle that activates the Vault Application itself, so this store
+# is always in sync with whether Vault is actually deployed).
+#
+# Why a separate store (not just provider=vault)?
+#   - `platform-secret-store` (AWS SM / Azure KV) holds platform secrets
+#     bootstrapped by Terraform (grafana-db, argocd-redis, opencost,
+#     openai-api-key, etc).
+#   - `app-secret-store` (Vault) holds workload application secrets
+#     curated by the platform team out-of-band.
+#   - Two stores let apps choose where their secrets live without
+#     mixing scopes. The cortex `common-app` chart hardcodes
+#     `storeName: app-secret-store` as the canonical name.
+#
+# Defaults assume Vault is deployed in-cluster at the standard service
+# URL produced by the HashiCorp Vault chart, with kubernetes auth
+# enabled and a role named `external-secrets` that has the `eso` policy
+# (vault-bootstrap.sh provisions both).
+
+vault:
+  enabled: false
+
+  # ClusterSecretStore name. The cortex common-app chart expects
+  # `app-secret-store`. Change only if your fleet uses a different
+  # canonical name.
+  storeName: "app-secret-store"
+
+  # Vault address. Default works for in-cluster Vault deployed via
+  # the HashiCorp chart in the `vault` namespace.
+  server: "http://vault.vault.svc.cluster.local:8200"
+
+  # KV mount path + version. The vault-bootstrap.sh script enables
+  # KV-v2 at `secret/`.
+  path: "secret"
+  version: "v2"
+
+  # Auth via Vault's kubernetes auth method.
+  auth:
+    kubernetes:
+      mountPath: "kubernetes"
+      role: "external-secrets"
+      serviceAccount:
+        name: "external-secrets"
+        namespace: "external-secrets"
