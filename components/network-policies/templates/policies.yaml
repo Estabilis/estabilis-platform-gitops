@@ -95,6 +95,14 @@ spec:
     - ports:
         - protocol: TCP
           port: 10250
+    # Prometheus metrics scrape from grafana namespace (alloy)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: grafana
+      ports:
+        - protocol: TCP
+          port: 9402
   egress:
 {{ include "network-policies.dns-egress" . }}
     # All egress (Let's Encrypt ACME, Azure DNS API)
@@ -183,7 +191,11 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: cnpg-system
-    # PostgreSQL clients from grafana namespace
+    # PostgreSQL clients + Prometheus metrics scrape from grafana namespace.
+    # Ports:
+    #   5432 — postgres clients (grafana stores session/dashboard state in CNPG)
+    #   8080 — cnpg-operator metrics (controller_runtime_*, cnpg_*)
+    #   9187 — cnpg postgres exporter sidecar metrics (per-instance pods)
     - from:
         - namespaceSelector:
             matchLabels:
@@ -191,6 +203,10 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9187
   egress:
 {{ include "network-policies.dns-egress" . }}
     # All egress (Azure Blob for WAL backup)
@@ -327,6 +343,18 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: trivy-system
+    # Prometheus metrics scrape from grafana namespace (alloy):
+    #   8080 — trivy-operator (controller-runtime + trivy_*)
+    #   4954 — trivy-server (vulnerability DB ClientServer endpoint)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: grafana
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 4954
   egress:
 {{ include "network-policies.dns-egress" . }}
     # All egress (container registries, trivy-db download)
