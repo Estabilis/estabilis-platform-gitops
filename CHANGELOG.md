@@ -11,6 +11,36 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.39.2] — 2026-04-30
+
+### Added — Universal `selfsigned` ClusterIssuer in `cert-manager-config`
+
+`components/cert-manager-config/templates/cluster-issuer-selfsigned.yaml`:
+new universal ClusterIssuer named `selfsigned` (cert-manager.io/v1,
+type SelfSigned). Created unconditionally — applies to both Azure and
+AWS deployments — because the use cases (admission webhook certs,
+internal mTLS, bootstrap CAs) are provider-agnostic and don't require
+ACME/DNS validation.
+
+Canonical first consumer: `external-secrets` chart's
+`webhook.certManager.cert.issuerRef` in `estabilis-platform >= v0.36.3`.
+Without this issuer the chart cannot enable cert-manager mode for the
+webhook cert, and falls back to its bundled cert-controller which
+fights ArgoCD's ServerSideApply on the cluster-scoped
+ValidatingWebhookConfiguration (full diagnosis in
+`estabilis-platform-tools/docs/runbooks/cortex/cortex-aws-prd-upstart-cli-mirror.md`
+Wave 3 postmortem).
+
+Other components can reuse the same issuer for any internal cert that
+doesn't need a publicly-validated chain.
+
+### Files
+
+- `components/cert-manager-config/templates/cluster-issuer-selfsigned.yaml` (NEW)
+- `workload-bootstrap/Chart.yaml` (`version` + `appVersion` → 0.39.2)
+- `workload-bootstrap/values.yaml` (`repoVersion` → v0.39.2)
+- `CHANGELOG.md` (this entry)
+
 ## [0.39.1] — 2026-04-29
 
 ### Fixed — `allow-metrics-server` NetworkPolicy port mismatch (AWS-only)
