@@ -11,6 +11,40 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.39.9] — 2026-05-04
+
+### Fixed — Workload Alloy `metric_pods` relabel for annotation scrape
+
+`values/workload/alloy.yaml`: same regex bug shipped fixed in the hub
+Alloy via Estabilis/estabilis-platform#148. The previous rule used
+only the `prometheus.io/port` annotation as source label with regex
+`"(.+)"` and replacement `"${1}:$0"`, causing both backrefs to resolve
+to the captured port value. Result: `__address__="<port>:<port>"`
+(e.g. `"9090:9090"`) instead of `"<pod_ip>:<port>"`. Any pod with
+`prometheus.io/scrape=true` annotation on a workload cluster never had
+its `/metrics` endpoint reached.
+
+Replaced with the canonical Prometheus pattern: combine `__address__`
+(pod IP from discovery) with the annotation port, matching
+`"([^:]+)(?::\d+)?;(\d+)"` and replacing with `"$1:$2"`. Also added a
+companion rule honoring `prometheus.io/path` when present.
+
+Workload Alloy does not run an OTLP receiver — only the hub does — so
+Bug 2 from the upstream PR (OTLP metrics + logs routing) does not
+apply here.
+
+Validation: `helm template grafana/alloy --version 1.6.2 -f
+values/workload/alloy.yaml` renders cleanly; `alloy fmt` exit 0;
+`alloy run` on the rendered config exits 0 (only the expected
+`sys.env()` errors fire when run offline without `LOKI_PUSH_URL` /
+`MIMIR_PUSH_URL` / `CLUSTER_NAME` set).
+
+Lower urgency than the hub fix — there are no workload clusters in
+production at the time of writing. Merging keeps the workload Alloy
+ready for the first cluster that gets provisioned.
+
+Refs Estabilis/estabilis-platform-tools#210, PR #40.
+
 ## [0.39.4] — 2026-04-30
 
 ### Fixed — `allow-grafana` NetworkPolicy now allows AWS ALB ingress
