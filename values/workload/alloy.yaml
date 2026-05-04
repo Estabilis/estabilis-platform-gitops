@@ -249,11 +249,24 @@ alloy:
           action        = "keep"
         }
 
+        // Build __address__ as <pod_ip>:<annotation_port>. The previous
+        // form ("${1}:$0" with only the port annotation as source label)
+        // resolved to "<port>:<port>" because both backrefs pointed at
+        // the same captured value, leaving the address unreachable.
+        // Same fix shipped for the hub Alloy in upstream PR #148.
         rule {
-          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_port"]
+          source_labels = ["__address__", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+          regex         = "([^:]+)(?::\\d+)?;(\\d+)"
+          replacement   = "$1:$2"
           target_label  = "__address__"
+          action        = "replace"
+        }
+
+        // Honor prometheus.io/path annotation when present.
+        rule {
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
           regex         = "(.+)"
-          replacement   = "${1}:$0"
+          target_label  = "__metrics_path__"
           action        = "replace"
         }
       }
