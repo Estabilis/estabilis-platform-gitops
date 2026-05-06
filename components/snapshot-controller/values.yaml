@@ -1,0 +1,15 @@
+# VolumeSnapshotClass declarations for the CSI snapshot-controller.
+#
+# The snapshot-controller and its CRDs (volumesnapshots.snapshot.storage.k8s.io
+# et al.) are installed by the cloud-managed mechanism for each provider:
+#   • AWS  — EKS managed addon `snapshot-controller` (provisioned in
+#            estabilis-platform/providers/aws/eks.tf)
+#   • Azure — TBD (deferred until a workload demands CSI snapshots)
+#
+# This component only ships the VolumeSnapshotClass(es) consumed by Velero
+# and other workloads. AWS values live in `values-aws.yaml` (loaded by the
+# Application via `valueFiles` against `global.provider`).
+#
+# Default: empty list — no VolumeSnapshotClass rendered when no provider
+# overlay applies.
+volumeSnapshotClasses: []

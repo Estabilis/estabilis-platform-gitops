@@ -1,0 +1,21 @@
+# AWS-specific VolumeSnapshotClass for the EBS CSI driver.
+#
+# Why label `velero.io/csi-volumesnapshot-class: "true"`:
+#   Velero discovers which VolumeSnapshotClass to use for a given
+#   StorageClass by matching this label. Without it, Velero falls back
+#   to no snapshot — backup completes with phase=PartiallyFailed and
+#   the source PV is skipped (observed on cortex 2026-05-05 prior to
+#   this component shipping).
+#
+# Why `is-default-class: "true"`:
+#   When a workload requests `kind: VolumeSnapshot` without specifying
+#   a snapshotClassName, k8s picks the default. Single VSC per cluster
+#   today — safe to flag as default.
+volumeSnapshotClasses:
+  - name: ebs-csi-aws
+    annotations:
+      snapshot.storage.kubernetes.io/is-default-class: "true"
+    labels:
+      velero.io/csi-volumesnapshot-class: "true"
+    driver: ebs.csi.aws.com
+    deletionPolicy: Delete
