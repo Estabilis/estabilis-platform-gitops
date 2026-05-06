@@ -11,6 +11,27 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.39.10] — 2026-05-06
+
+### Added — `components/snapshot-controller/` chart with VolumeSnapshotClass
+
+New optional component that ships VolumeSnapshotClass resources for the
+in-cluster CSI snapshot-controller. The controller and CRDs themselves
+are installed via cloud-managed mechanisms (AWS: EKS managed addon
+`snapshot-controller`, provisioned in
+`estabilis-platform/providers/aws/eks.tf`).
+
+`values-aws.yaml` ships one VolumeSnapshotClass `ebs-csi-aws` with the
+`velero.io/csi-volumesnapshot-class: "true"` discovery label so Velero
+backups can snapshot EBS PVs (previously fell back to no snapshot →
+`PartiallyFailed` backups, observed on cortex prd 2026-05-05). Default
+class annotation set so workloads requesting `kind: VolumeSnapshot`
+without `snapshotClassName` resolve to this VSC.
+
+Consumed by `bootstrap/platform-root/templates/snapshot-controller.yaml`
+in estabilis-platform v0.46.0+ (AWS-only, sync wave 6 — before
+velero in wave 7).
+
 ## [0.39.9] — 2026-05-04
 
 ### Fixed — Workload Alloy `metric_pods` relabel for annotation scrape
