@@ -11,6 +11,20 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.39.11] — 2026-05-15
+
+### Fixed — `components/karpenter-resources`: default NodePool no longer provisions unusable nodes
+
+Three coordinated changes to the baseline NodePool that were validated downstream (cortex prd, 2026-04-30 → 2026-05-01) but never propagated upstream — every fresh AWS cluster bootstrap was hitting the same issues until each operator wrote a wrapper override.
+
+- **ENI pod-density floor.** Replaced `instance-size: [medium, large, xlarge]` with `instance-cpu Gt 1`. AWS VPC CNI without Prefix Delegation caps `--max-pods` at 8 for `*.medium` types, which can't accommodate the 6+ mandatory DaemonSets (aws-node, kube-proxy, ebs-csi-node, eks-pod-identity-agent, alloy, node-exporter) plus any workload pod. The functional `instance-cpu Gt 1` constraint excludes mediums (all 1 vCPU) while leaving the upper end (2xlarge, 4xlarge, …) fully open — Karpenter retains flexibility to bin-pack large workloads efficiently. The pool's `limits` block (32 vCPU / 64 GiB) caps total cost regardless of size.
+
+- **Consolidation policy `WhenEmpty` (was: `WhenEmptyOrUnderutilized`).** Karpenter v1.3+ SpotToSpotConsolidation has a hardcoded minimum of 15 cheaper instance options for single-node consolidation. On steady-state fleets where only 1-11 alternatives surface, the policy still fires every minute and aborts, generating constant churn without forward progress. Observed live on a production fleet: 208 nodes launched in 24h, 95% disrupted by `Underutilized` consolidation. Reverting to `WhenEmpty` is the documented workaround until the upstream issue is fixed. Downstream may re-enable `WhenEmptyOrUnderutilized` per cluster.
+
+- **`consolidateAfter: 5m` (was: `1m`).** 1m fires while pods are mid-rotation, cascading single deletes into chains. 5m absorbs natural rescheduling waves.
+
+This patch fixes a default that nobody had ever revisited since the initial commit copied the legacy NodePool verbatim in 2026-02.
+
 ## [0.39.10] — 2026-05-06
 
 ### Added — `components/snapshot-controller/` chart with VolumeSnapshotClass
