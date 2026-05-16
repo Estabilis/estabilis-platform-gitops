@@ -5,9 +5,12 @@
 # families, sizes, limits, disruption policy) is configurable here so
 # downstream can tune capacity without forking the chart.
 #
-# Defaults mirror the legacy `cortex-eks-prod` NodePool (general-
-# purpose c/m/r/t spot-or-on-demand, gen >4, sizes medium/large/xlarge,
-# 32 vCPU + 64Gi RAM cap, 1m underutilization consolidation).
+# Provider scope: AWS only. All `karpenter.k8s.aws/*` requirements are
+# AWS-specific. Multi-provider Karpenter design (Azure NAP integration)
+# is pending — tracked separately.
+#
+# Defaults evolved from the legacy `cortex-eks-prod` NodePool. Changes
+# from the 2026-02 baseline are documented inline below.
 
 # clusterName, nodeRole, discoveryTagKey are all injected via
 # helm.parameters from the platform-root karpenter.yaml AWS branch.
@@ -25,10 +28,9 @@ ec2NodeClass:
         encrypted: true
         volumeSize: 30Gi
         volumeType: gp3
-  # IMDSv2 enforcement — matches the security baseline on the legacy
-  # cortex-eks-prod nodes (`httpTokens: required`). Without this, EC2
-  # instances boot in IMDSv1 mode and leak credentials to any pod that
-  # can reach 169.254.169.254 unauthenticated.
+  # IMDSv2 enforcement — `httpTokens: required` prevents pods from
+  # reaching 169.254.169.254 unauthenticated and exfiltrating node
+  # instance-profile credentials.
   metadataOptions:
     httpEndpoint: enabled
     httpProtocolIPv6: disabled
@@ -39,11 +41,35 @@ nodePool:
   limits:
     cpu: "32"
     memory: 64Gi
+
+  # Disruption policy — `WhenEmpty` + 5m delay.
+  #
+  # Was: WhenEmptyOrUnderutilized + 1m. Reverted 2026-05 after two
+  # observed regressions on production fleets:
+  #
+  #   1. Underutilized-driven thrashing (cortex prd 2026-05-01):
+  #      208 nodes launched in 24h, 95% disrupted by `Underutilized`
+  #      consolidation. SpotToSpotConsolidation (hardcoded minimum 15
+  #      cheaper instance options for single-node consolidation) was
+  #      aborting because the pool only surfaced 1-11 alternatives at
+  #      the steady-state scale, but the policy still fired every
+  #      minute, generating constant churn without forward progress.
+  #      Workaround: `WhenEmpty` until a Karpenter release that fixes
+  #      the SpotToSpot minimum-alternatives logic (track upstream
+  #      kubernetes-sigs/karpenter#1234 family).
+  #
+  #   2. 1m consolidation interval fires while pods are mid-rotation;
+  #      5m absorbs natural rescheduling waves so single deletes don't
+  #      cascade into chains.
+  #
+  # Downstream may re-enable `WhenEmptyOrUnderutilized` for clusters
+  # where empirical churn doesn't show the SpotToSpot issue.
   disruption:
-    consolidationPolicy: WhenEmptyOrUnderutilized
-    consolidateAfter: 1m
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 5m
     budgets:
       - nodes: "1"
+
   template:
     expireAfter: 720h
     requirements:
@@ -59,6 +85,27 @@ nodePool:
       - key: karpenter.k8s.aws/instance-generation
         operator: Gt
         values: ["4"]
-      - key: karpenter.k8s.aws/instance-size
-        operator: In
-        values: ["medium", "large", "xlarge"]
+      # Functional pod-density floor instead of a hardcoded size list:
+      #
+      # AWS VPC CNI without Prefix Delegation caps `--max-pods` per
+      # node by ENI × IPs/ENI of the instance type. c*.medium = 8
+      # max-pods, which can't accommodate the 6+ mandatory DaemonSets
+      # (aws-node, kube-proxy, ebs-csi-node, eks-pod-identity-agent,
+      # alloy, node-exporter) plus any workload pod. Karpenter would
+      # happily provision unusable mediums whenever the trigger
+      # workload "fits" — observed 2026-05-15 on a fresh bootstrap.
+      #
+      # Karpenter exposes instance vCPU count via the native label
+      # `karpenter.k8s.aws/instance-cpu`. All `*.medium` types across
+      # c/m/r/t categories have 1 vCPU; large+ have 2+. Filtering
+      # `instance-cpu Gt 1` excludes mediums functionally without
+      # listing sizes, leaving the upper end (2xlarge, 4xlarge, …)
+      # fully open for Karpenter to bin-pack into. The pool's
+      # `limits` block (32 vCPU / 64 GiB) caps total cost regardless.
+      #
+      # When Prefix Delegation is enabled cluster-wide (raises medium
+      # to 110 max-pods), this constraint becomes effectively a no-op
+      # and can be relaxed.
+      - key: karpenter.k8s.aws/instance-cpu
+        operator: Gt
+        values: ["1"]
