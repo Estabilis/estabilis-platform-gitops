@@ -11,6 +11,20 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.39.12] — 2026-05-15
+
+### Fixed — `components/karpenter-resources`: memory floor (`instance-memory Gt 4096`)
+
+Follow-up to v0.39.11. The ENI pod-density fix unblocked `*.medium` saturation, but the surviving `*.large` nodes still ran into a different ceiling: memory exhaustion as more DaemonSets joined the cluster post-provisioning.
+
+**Root cause.** Karpenter calculates DaemonSet overhead **only at the moment of provisioning** a node. Once the node is up, adding more DaemonSets to the cluster (ESO, alloy, observability stack, …) gradually saturates the node. Karpenter does NOT revisit sizing — the NodePool spec didn't change, the node isn't `Drifted`, and the `WhenEmpty` consolidation policy doesn't replace busy nodes. The result is "node slowly tightens until the next DaemonSet pod stays `Pending` forever".
+
+**Fix.** Add `karpenter.k8s.aws/instance-memory Gt 4096` (MiB) to the default NodePool requirements. Excludes anything with ≤ 4 GiB raw memory (i.e., excludes `*.large`), forcing `xlarge+` as the minimum. With ~6.5 GiB allocatable per node, the DaemonSet set (~950 Mi) plus typical workload pods has comfortable headroom; future DaemonSet additions land without retroactively breaking provisioned nodes.
+
+**Trade-off.** Roughly 2x the hourly cost vs `*.large`. Compensated by (a) one xlarge bin-packs the workload of 1.5-2 larges, (b) eliminates the entire failure mode described above.
+
+**Combined effect of v0.39.11 + v0.39.12**: any node Karpenter provisions has ≥ 2 vCPU AND > 4 GiB raw memory, which means it can host any reasonable DaemonSet count plus workload. The default became operationally sane.
+
 ## [0.39.11] — 2026-05-15
 
 ### Fixed — `components/karpenter-resources`: default NodePool no longer provisions unusable nodes

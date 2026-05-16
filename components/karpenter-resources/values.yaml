@@ -109,3 +109,43 @@ nodePool:
       - key: karpenter.k8s.aws/instance-cpu
         operator: Gt
         values: ["1"]
+
+      # Memory floor — guarantees DaemonSet headroom regardless of which
+      # instance family Karpenter picks.
+      #
+      # The 2026-05-15 cortex HML postmortem traced the alloy DaemonSet
+      # FailedScheduling not just to ENI pod-density (fixed in v0.39.11
+      # via instance-cpu Gt 1) but also to memory exhaustion on the
+      # surviving `*.large` nodes. Karpenter computes DaemonSet overhead
+      # ONLY at provisioning time — once a node is up, adding more
+      # DaemonSets to the cluster (ESO, alloy, Beyla, …) gradually
+      # saturates the node, but Karpenter never marks it Drifted (the
+      # NodePool spec didn't change) and never reconsiders sizing.
+      #
+      # Observed DS overhead on a steady-state platform cluster:
+      #   - 4 system DaemonSets (aws-node, kube-proxy, ebs-csi-node,
+      #     eks-pod-identity-agent): ~250 Mi
+      #   - 2 observability DaemonSets (node-exporter, alloy): ~400 Mi
+      #   - 1-2 platform DaemonSets (snapshot-controller, hubble, …):
+      #     ~300 Mi
+      #   → DS overhead alone ≈ 950 Mi
+      #
+      # A c*.large has 4 GiB raw memory, ~3.1 GiB allocatable after
+      # kubelet + reservations. That leaves ~2.2 GiB for workload —
+      # not enough headroom once 2-3 typical pods land. Excluding
+      # everything ≤ 4 GiB raw memory forces xlarge+ as the minimum
+      # (8 GiB raw, ~6.5 GiB allocatable), giving the DaemonSet set
+      # comfortable room to grow without retroactively breaking
+      # provisioned nodes.
+      #
+      # Trade-off: ~2x hourly cost vs `large`. Compensated by:
+      #   (a) one xlarge bin-packs the workload of 1.5-2 larges,
+      #   (b) eliminates an entire class of "node slowly tightens
+      #       until DS pod stays Pending forever" failures.
+      #
+      # The value 4096 is in MiB and is exclusive ('Gt'). Instance
+      # types with `memory >= 8192 MiB raw` satisfy the constraint;
+      # the 4 GiB raw types (large) are excluded.
+      - key: karpenter.k8s.aws/instance-memory
+        operator: Gt
+        values: ["4096"]
