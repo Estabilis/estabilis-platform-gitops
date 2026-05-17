@@ -80,7 +80,27 @@ namespaces:
       requests.cpu: "4"
       requests.memory: 8Gi
       limits.cpu: "16"
-      limits.memory: 16Gi
+      # Was 16Gi until 2026-05-17. Bumped to 32Gi after the cortex HML
+      # postmortem: the namespace hosts a single ArgoCD installation
+      # whose application-controller alone reserves 5Gi (lives-state
+      # cache for ~40 managed Applications), repo-server x2 reserves
+      # 4Gi, argocd-server x2 reserves 2Gi, plus the
+      # applicationset-controller / notifications / dex / redis tail.
+      # Steady-state usage already sits at ~13Gi with controller.replicas=1.
+      # When operators set controller.replicas=2 for HA (matching the
+      # legacy cortex-eks-prod baseline), the second controller pod
+      # cannot be admitted under a 16Gi cap and StatefulSet retries
+      # FailedCreate every ~10min. Sharding then assigns clusters to
+      # a shard whose pod never exists — reconcile silently stops and
+      # Applications stay frozen at the last successful sync (observed
+      # 18h of OutOfSync on platform-root, recovery required force-
+      # deleting controller-0 + manual sync).
+      #
+      # 32Gi accommodates: 2x application-controller (10Gi) + 2x
+      # repo-server (4Gi) + 2x argocd-server (2Gi) + tail (~3Gi) = ~19Gi
+      # peak; rest is headroom for spike consumption during bulk sync
+      # waves. Memory cap is cheap relative to the failure mode.
+      limits.memory: 32Gi
       pods: "30"
       persistentvolumeclaims: "5"
     # ArgoCD's application-controller alone needs ~1Gi to manage ~40 Apps;
