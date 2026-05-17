@@ -11,6 +11,16 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.39.13] — 2026-05-17
+
+### Fixed — `components/resource-quotas`: argocd namespace `limits.memory` 16Gi → 32Gi
+
+The default ResourceQuota for the `argocd` namespace was sized for a single-replica control plane (~13Gi steady-state). Operators following the legacy `cortex-eks-prod` HA baseline set `controller.replicas: 2` in their downstream `overrides/argocd/values.yaml`. With a second `application-controller` pod requesting 5Gi memory, total exceeds 16Gi and the StatefulSet retries `FailedCreate` indefinitely.
+
+The downstream symptom is silent and severe: ArgoCD enables sharding when `ARGOCD_CONTROLLER_REPLICAS=2`, the cluster is hash-assigned to shard 1, and with no `application-controller-1` pod (blocked by quota), nobody reconciles that shard. Applications freeze at their last successful sync state — observed 18h of `platform-root` `OutOfSync` on cortex HML with no error surfaced anywhere obvious; only `kubectl describe statefulset` showed the `exceeded quota` warnings, 103 retries deep.
+
+Bumping `limits.memory` to 32Gi accommodates the HA configuration with headroom for bulk sync waves. Memory cap is cheap relative to the failure mode.
+
 ## [0.39.12] — 2026-05-15
 
 ### Fixed — `components/karpenter-resources`: memory floor (`instance-memory Gt 4096`)
