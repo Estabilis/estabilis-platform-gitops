@@ -72,6 +72,7 @@ spec:
       syncPolicy:
         {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
         automated:
+          prune: true
           selfHeal: true
         retry:
           limit: 10

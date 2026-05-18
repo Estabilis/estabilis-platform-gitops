@@ -15,7 +15,9 @@
     - Emit PolicyException CRDs for per-resource, per-policy escapes.
 
   Mirrors hub kyverno-exceptions Application exactly (sync-wave 4 —
-  after policies, no automated sync).
+  after policies). Auto-sync with prune per ADR 0029 (Safe class —
+  PolicyException CRs only; pruning a removed exception = no escape
+  hatch for that resource; reversible by re-adding to the chart).
 */ -}}
 {{- if index .Values.components "kyverno-exceptions" }}
 ---
@@ -65,6 +67,9 @@ spec:
         server: "{{ `{{server}}` }}"
         namespace: "kyverno"
       syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
         retry:
           limit: 10
           backoff:
