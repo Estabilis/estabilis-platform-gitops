@@ -19,9 +19,9 @@
        workload overlay from values/workload/kyverno-policies.yaml.
 
   No managedNamespaceMetadata: the kyverno namespace is already created
-  by the workload-kyverno ApplicationSet. Mirrors hub kyverno-policies
-  Application exactly (no automated sync — destructive changes to
-  ClusterPolicies must be operator-initiated).
+  by the workload-kyverno ApplicationSet. Auto-sync with prune per
+  ADR 0029 (Safe class — ClusterPolicy CRs only; pruning a removed
+  policy = no enforcement; reversible by re-adding to the chart).
 */ -}}
 {{- if index .Values.components "kyverno-policies" }}
 ---
@@ -85,6 +85,9 @@ spec:
         # ADR 0005 L1 provenance annotations (built-at, build-id, etc.)
         # are handled globally via argocd-cm resource.customizations.ignoreDifferences.all
       syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
         retry:
           limit: 10
           backoff:

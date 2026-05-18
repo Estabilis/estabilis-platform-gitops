@@ -11,6 +11,29 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.39.14] — 2026-05-18
+
+### Fixed — `workload-bootstrap`: ADR 0029 compliance — auto-prune on Safe-class templates
+
+Six Application/ApplicationSet templates in `workload-bootstrap/templates/` were out of compliance with [ADR 0029 — Auto-prune policy](https://github.com/Estabilis/estabilis-platform-tools/blob/main/docs/adr/0029-auto-prune-policy.md). The ADR classifies each template by risk (Safe / Coupled / CRD-owning / Foundational) and dictates whether `automated.prune: true` is appropriate.
+
+The six templates emit only CR instances or Kubernetes-native resources (no CRDs, no operators, no cross-chart `optional: false` coupling) — they qualify as **Safe class** and should auto-prune so that gate flips and chart cleanups don't leak orphan resources cluster-wide.
+
+| Template | Before | After |
+|---|---|---|
+| `hubble-ui.yaml` | `automated.selfHeal: true` only | `automated.{prune,selfHeal}: true` |
+| `kube-state-metrics.yaml` | `automated.selfHeal: true` only | `automated.{prune,selfHeal}: true` |
+| `kyverno-exceptions.yaml` | no `automated` block | `automated.{prune,selfHeal}: true` |
+| `kyverno-policies.yaml` | no `automated` block | `automated.{prune,selfHeal}: true` |
+| `network-policies.yaml` | no `automated` block | `automated.{prune,selfHeal}: true` |
+| `resource-quotas.yaml` | no `automated` block | `automated.{prune,selfHeal}: true` |
+
+The `kyverno-policies` template comment ("no automated sync — destructive changes to ClusterPolicies must be operator-initiated") predated ADR 0029 and contradicted the ADR's explicit classification of `kyverno-policies` as **Safe / Enabled** (ADR 0029 §"Platform components", line 93). Comment updated to reflect the ADR decision.
+
+Same change applied to the `kyverno-exceptions` template comment ("no automated sync") — the template now syncs automatically with prune, consistent with the matching `client-kyverno-exceptions` template that was already on `automated.{prune,selfHeal}: true`.
+
+**Behavioral impact downstream.** Workload clusters consuming this chart will reconcile `hubble-ui`, `kube-state-metrics`, `kyverno-exceptions`, `kyverno-policies`, `network-policies`, `resource-quotas` automatically on git pushes to the workload-bootstrap source. Orphans from removed templates or flipped gates are pruned automatically. `selfHeal: true` reverts out-of-band `kubectl patch` operations — operators with active incident debugging should be aware.
+
 ## [0.39.13] — 2026-05-17
 
 ### Fixed — `components/resource-quotas`: argocd namespace `limits.memory` 16Gi → 32Gi

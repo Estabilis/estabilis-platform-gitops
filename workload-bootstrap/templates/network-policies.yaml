@@ -92,6 +92,9 @@ spec:
         server: "{{ `{{server}}` }}"
         namespace: "default"
       syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
         retry:
           limit: 10
           backoff:
