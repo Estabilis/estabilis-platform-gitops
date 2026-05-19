@@ -11,6 +11,24 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+### Added — `values/platform/karpenter`: enable `NodeRepair` feature gate
+
+Karpenter v1.x ships `NodeRepair` as a beta feature gate, default-off. With it disabled, Karpenter only acts on node lifecycle events delivered through the SQS interruption queue (spot reclaim, AZ rebalance, scheduled maintenance, instance state-change). Nodes that go unhealthy *without* an AWS-originated signal — kubelet crash, kernel deadlock, network partition, container runtime hang — are not surfaced through SQS and therefore stay tainted (`node.kubernetes.io/unreachable:NoExecute/NoSchedule`) indefinitely. Workload pods enter `Terminating` but can't finalize (no kubelet to confirm shutdown), which means the `WhenEmpty` consolidation policy never finds the node empty and never disrupts it.
+
+Observed 2026-05-19 on a production AWS deployment: a spot node went `NotReady` (kubelet stopped heart­beating); ~25 pods stayed `Terminating` for ~52 minutes before manual intervention. NodeClaim `Ready=True` and `Consolidatable=True` throughout — Karpenter had no mechanism to act on the bad Node Conditions.
+
+Enabling `nodeRepair: true` adds a second observation channel: Karpenter watches the Node Object's `Conditions` directly and, when any of `Ready=Unknown/False`, `KernelDeadlock=True`, `NetworkUnavailable=True`, `ContainerRuntimeNotReady=True`, or `ReadonlyFilesystem=True` persists for the per-condition threshold (~30 min, hardcoded in Karpenter v1.x), force-terminates the NodeClaim and reprovisions. NodeRepair bypasses PDBs, drain timeouts, and disruption budgets — the node is already dead, so there is nothing to protect.
+
+| Trigger source | Before | After |
+|---|---|---|
+| AWS-originated (spot reclaim, AZ rebalance, scheduled events) | SQS queue → Karpenter cordon+drain ✓ | unchanged ✓ |
+| Silent degradation (kubelet/runtime/network/kernel) | not detected — node tainted forever | NodeRepair force-replaces after ~30 min |
+| Consolidation (empty/underutilized) | NodePool `WhenEmpty` policy ✓ | unchanged ✓ |
+
+**Behavioral impact downstream.** AWS clusters consuming this chart will, after the platform-root promote, see Karpenter automatically replace nodes whose Conditions go bad. False-positive force-replacement of a transiently flapping node is possible but rare given the ~30 min stability window; the cost (~3 min of churn for one node) is materially less than the current failure mode (open-ended outage requiring manual `kubectl delete nodeclaim`). No-op for Azure clusters (gated on `provider == "aws"` in platform-root).
+
+**Operator runbook.** If NodeRepair fires unexpectedly often (more than a node/day in steady state), that indicates a deeper AMI / kernel / network issue that NodeRepair would be masking — investigate `karpenter` controller logs filtered on `reason=NodeRepair` and EC2 console for the affected instance IDs before disabling the gate.
+
 ## [0.39.14] — 2026-05-18
 
 ### Fixed — `workload-bootstrap`: ADR 0029 compliance — auto-prune on Safe-class templates

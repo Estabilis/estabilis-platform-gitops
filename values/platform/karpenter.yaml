@@ -54,5 +54,22 @@ settings:
   # between spot instances to reclaim cheaper capacity. Cleared by
   # default-false in the chart but enabled here to match the legacy
   # cortex production behaviour.
+  #
+  # nodeRepair lets Karpenter detect unhealthy Nodes via the
+  # Node Object Conditions (Ready=Unknown/False, KernelDeadlock,
+  # NetworkUnavailable, ContainerRuntimeNotReady, ReadonlyFilesystem)
+  # and force-terminate the underlying NodeClaim, triggering a fresh
+  # replacement. Complements the SQS interruption queue (which only
+  # surfaces AWS-originated events like spot reclaim) by covering the
+  # "kubelet silently died" class of failure — observed 2026-05-19
+  # on a production AWS deployment where a spot node went NotReady
+  # for ~52 minutes with no AWS-side notice; Karpenter's WhenEmpty
+  # consolidation couldn't disrupt it because Terminating pods kept
+  # the node non-empty, and no other mechanism existed to act on the
+  # bad Node Conditions. NodeRepair force-replaces the node ignoring
+  # PDBs/budgets (the node is already dead — nothing to protect).
+  # Beta in Karpenter v1.x with default-false; we enable it
+  # explicitly. Trigger duration is hardcoded per condition (~30m).
   featureGates:
     spotToSpotConsolidation: true
+    nodeRepair: true
