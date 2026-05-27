@@ -244,7 +244,7 @@ spec:
 # Egress: DNS, grafana namespace (backend routing)
 # Ingress: all (Azure Load Balancer, external traffic)
 # =============================================================================
-{{- if and .Values.policies.traefik.enabled (ne (.Values.components.traefik | toString) "false") }}
+{{- if and .Values.policies.traefik.enabled (or (ne (.Values.components.traefik | toString) "false") (eq (index .Values.components "traefik-internal" | default false | toString) "true")) }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

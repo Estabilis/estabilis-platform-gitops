@@ -23,6 +23,7 @@ components:
   cnpg: true
   kyverno: true
   traefik: true
+  traefik-internal: false
   velero: true
   opencost: true
   trivy: true
@@ -67,6 +68,8 @@ policies:
   kyverno:
     enabled: true
   traefik:
+    enabled: true
+  traefik-internal:
     enabled: true
   velero:
     enabled: true
