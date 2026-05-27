@@ -1,0 +1,20 @@
+# Azure-specific overlay for Traefik on the hub cluster.
+# Loaded in addition to traefik.yaml when global.provider=azure.
+
+service:
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /ping
+  # externalTrafficPolicy=Local preserves the client source IP end-to-end.
+  # With the Cluster default, Azure LB performs SNAT (source IP becomes the
+  # node IP), which breaks any L7 per-app ipAllowList Middleware (e.g.
+  # grafana-ingress, loki-ingress). Local makes the LB forward only to nodes
+  # that actually host a Traefik replica — healthCheckNodePort ensures LB
+  # never routes to a node without a local pod.
+  spec:
+    externalTrafficPolicy: Local
+
+tolerations:
+  - key: "kubernetes.azure.com/scalesetpriority"
+    operator: "Equal"
+    value: "spot"
+    effect: "NoSchedule"

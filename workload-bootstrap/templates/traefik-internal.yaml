@@ -1,0 +1,69 @@
+{{- /*
+  ADR 0014 — optional second Traefik instance for internal (VNet-only)
+  exposures on workload clusters. Produces ingressClass 'traefik-internal'
+  backed by an Internal LoadBalancer. Use alongside the public 'traefik'
+  when the cluster needs both public and internal endpoints, or standalone
+  behind an NVA (FortiGate) where only internal ingress is available.
+
+  Opt-in toggle: components.traefik-internal (default false)
+  Sync-wave 6 — before public traefik (wave 7).
+*/ -}}
+{{- if index .Values.components "traefik-internal" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: traefik-internal
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+  template:
+    metadata:
+      name: "traefik-internal-{{ `{{ .name }}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "6"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{ .name }}` }}"
+    spec:
+      project: workload-baseline
+      sources:
+        - repoURL: https://traefik.github.io/charts
+          chart: traefik
+          targetRevision: "39.0.5"
+          helm:
+            releaseName: "traefik-internal"
+            valueFiles:
+              - $values/values/workload/traefik.yaml
+              - $values/values/workload/traefik-internal.yaml
+              {{- include "workload-bootstrap.overrideValueFile" (dict "component" "traefik-internal" "root" $) | nindent 14 }}
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "traefik-internal" "root" $) | nindent 14 }}
+            ignoreMissingValueFiles: true
+            parameters:
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+        {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{ .server }}` }}"
+        namespace: "traefik"
+      syncPolicy:
+        {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
+        automated:
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}

@@ -1,0 +1,105 @@
+# Hub Traefik ingress controller — provider-agnostic base values.
+# https://github.com/traefik/traefik-helm-chart
+#
+# Loaded by bootstrap/platform-root/templates/traefik.yaml and
+# traefik-internal.yaml as the first layer. Provider-specific
+# extensions live in traefik-{azure,aws}.yaml.
+
+commonLabels:
+  estabilis.io/managed-by: platform
+  estabilis.io/component: traefik
+
+image:
+  registry: docker.io
+  repository: traefik
+  tag: "v3.4.0"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+deployment:
+  replicas: 2
+
+tolerations:
+  - key: "estabilis.io/workload-type"
+    operator: "Equal"
+    value: "platform"
+    effect: "NoSchedule"
+
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: "estabilis.io/pool-type"
+              operator: In
+              values: ["spot"]
+      - weight: 10
+        preference:
+          matchExpressions:
+            - key: "estabilis.io/pool-type"
+              operator: In
+              values: ["regular"]
+
+service:
+  type: LoadBalancer
+
+providers:
+  kubernetesCRD:
+    enabled: true
+    allowCrossNamespace: true
+  kubernetesIngress:
+    enabled: true
+
+logs:
+  general:
+    level: INFO
+  access:
+    enabled: true
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addServicesLabels: true
+
+tracing:
+  otlp:
+    enabled: true
+    grpc:
+      endpoint: "grafana-alloy.grafana.svc.cluster.local:4317"
+      insecure: true
+
+ports:
+  web:
+    port: 8000
+    exposedPort: 80
+  websecure:
+    port: 8443
+    exposedPort: 443
+  metrics:
+    port: 9100
+    expose:
+      default: false
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  capabilities:
+    drop: [ALL]
+    add: [NET_BIND_SERVICE]
+  seccompProfile:
+    type: RuntimeDefault
+
+podSecurityContext:
+  fsGroup: 65532
+  runAsNonRoot: true

@@ -93,6 +93,7 @@ components:
 
   # --- ingress (ADR 0014) ---
   traefik: true              # ingress controller for exposure charts
+  traefik-internal: false    # optional: second Traefik for VNet-only exposures (ILB) — enable behind NVA or for split public/internal
   hubble-ui-ingress: true    # Hubble UI external ingress (requires traefik)
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,7 @@
+# AWS-specific overlay for Traefik on the hub cluster.
+# Loaded in addition to traefik.yaml when global.provider=aws.
+#
+# Currently empty — EKS does not require provider-specific LB annotations
+# for Traefik's Service (the AWS Load Balancer Controller handles NLB
+# provisioning via its own defaults). Add AWS-specific overrides here
+# when needed (e.g. NLB target-type annotations, WAF integration).

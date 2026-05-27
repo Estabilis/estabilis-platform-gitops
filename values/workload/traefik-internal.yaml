@@ -1,0 +1,21 @@
+# Workload Traefik internal — overlay loaded on top of workload/traefik.yaml.
+# Overrides the Service to use an Internal LoadBalancer and renames the
+# ingressClass so exposures can target it explicitly (ADR 0014).
+# Used in environments behind NVA (FortiGate) where only internal
+# ingress is available, or alongside the public traefik for split exposure.
+
+service:
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+    service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /ping
+
+ingressClass:
+  enabled: true
+  isDefaultClass: false
+  name: traefik-internal
+
+providers:
+  kubernetesIngress:
+    ingressClass: traefik-internal
+  kubernetesCRD:
+    ingressClass: traefik-internal
