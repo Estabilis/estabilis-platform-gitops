@@ -11,6 +11,14 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-05-27
+
+### Added — `traefik`: migrate hub values + add workload traefik-internal
+
+- **Hub traefik values migrated** from `estabilis-platform/core/components/traefik/` to `values/platform/` (traefik.yaml, traefik-azure.yaml, traefik-aws.yaml, traefik-internal.yaml). Follows the vault migration pattern — templates remain in estabilis-platform, values owned by gitops.
+- **Hub traefik hardened**: image pinned to v3.4.0, securityContext (non-root, read-only FS, NET_BIND_SERVICE, seccomp RuntimeDefault), podSecurityContext (fsGroup 65532), `estabilis.io/managed-by: platform` label. Aligned with existing workload traefik baseline.
+- **Workload traefik-internal**: new ApplicationSet + values for environments behind NVA (FortiGate) where only internal ingress is available. Opt-in via `components.traefik-internal: false` (default off). Same ILB + ingressClass pattern as hub traefik-internal (ADR 0014). Deploys to namespace `traefik` with `releaseName: traefik-internal` for resource isolation.
+
 ### Added — `values/platform/karpenter`: enable `NodeRepair` feature gate
 
 Karpenter v1.x ships `NodeRepair` as a beta feature gate, default-off. With it disabled, Karpenter only acts on node lifecycle events delivered through the SQS interruption queue (spot reclaim, AZ rebalance, scheduled maintenance, instance state-change). Nodes that go unhealthy *without* an AWS-originated signal — kubelet crash, kernel deadlock, network partition, container runtime hang — are not surfaced through SQS and therefore stay tainted (`node.kubernetes.io/unreachable:NoExecute/NoSchedule`) indefinitely. Workload pods enter `Terminating` but can't finalize (no kubelet to confirm shutdown), which means the `WhenEmpty` consolidation policy never finds the node empty and never disrupts it.
