@@ -11,6 +11,12 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.40.1] - 2026-05-27
+
+### Fixed
+
+- `workload-bootstrap/templates/traefik-internal.yaml`: use `ignoreMissingValueFiles` helper instead of inline literal (lint rule).
+
 ## [0.40.0] - 2026-05-27
 
 ### Added — `traefik`: migrate hub values + add workload traefik-internal
