@@ -47,8 +47,11 @@ spec:
               - $values/core/components/hubble-ui/values.yaml
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "hubble-ui" "root" $) | nindent 14 }}
             {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
-            parameters:
-              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+            {{- /* parameters only when provenance is set — a bare `parameters:`
+                   with an empty provenance include renders `null`, which the
+                   ApplicationSet schema rejects. provenanceParametersBlock emits
+                   the `parameters:` key only when there is content. */}}
+            {{- include "workload-bootstrap.provenanceParametersBlock" $ | nindent 12 }}
         - repoURL: https://github.com/Estabilis/estabilis-platform.git
           targetRevision: {{ .Values.platformVersion | quote }}
           ref: values

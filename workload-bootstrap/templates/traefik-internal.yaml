@@ -49,10 +49,14 @@ spec:
             {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
             parameters:
               # Per-cluster fixed ILB IP from the bridge annotation (NVA/FortiGate
-              # topology). `get` returns "" when the annotation is absent (operator
-              # drops empty bridge values) → empty loadBalancerIP = dynamic ILB IP.
+              # topology). `index` returns "" when the annotation is absent (operator
+              # drops empty bridge values; index does not error on missing map keys,
+              # unlike `.field` access under missingkey=error) → empty
+              # loadBalancerIP = dynamic ILB IP. `get`/`dig` are unusable here:
+              # ArgoCD passes .metadata.annotations as map[string]string, not the
+              # map[string]interface{} sprig expects.
               - name: service.spec.loadBalancerIP
-                value: '{{ `{{ get .metadata.annotations "estabilis.io/bridge.traefik-internal-lb-ip" }}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.traefik-internal-lb-ip" }}` }}'
                 forceString: true
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         - repoURL: {{ .Values.repoURL | quote }}

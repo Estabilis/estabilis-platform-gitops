@@ -30,6 +30,11 @@ metadata:
   name: resource-quotas
   namespace: argocd
 spec:
+  # goTemplate required to read per-cluster bridge annotations (components.traefik*)
+  # via `index .metadata.annotations`. missingkey=error is safe here: `index`
+  # returns "" for absent keys (the option only guards `.field` access).
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
   generators:
     - clusters:
         selector:
@@ -37,11 +42,11 @@ spec:
             {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
   template:
     metadata:
-      name: "resource-quotas-{{ `{{name}}` }}"
+      name: "resource-quotas-{{ `{{ .name }}` }}"
       annotations:
         argocd.argoproj.io/sync-wave: "10"
       labels:
-        estabilis.io/workload-cluster: "{{ `{{name}}` }}"
+        estabilis.io/workload-cluster: "{{ `{{ .name }}` }}"
     spec:
       project: workload-baseline
       sources:
@@ -70,10 +75,10 @@ spec:
               {{- end }}
               {{- end }}
               - name: components.traefik
-                value: '{{ `{{ get .metadata.annotations "estabilis.io/bridge.traefik-enabled" | default "false" }}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.traefik-enabled" | default "false" }}` }}'
                 forceString: true
               - name: components.traefik-internal
-                value: '{{ `{{ get .metadata.annotations "estabilis.io/bridge.traefik-internal-enabled" | default "false" }}` }}'
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.traefik-internal-enabled" | default "false" }}` }}'
                 forceString: true
               # Explicitly disable components NOT in the workload baseline
               {{- $chartNamespaces := list "grafana" "argocd" "cert-manager" "external-secrets" "external-dns" "cnpg-system" "traefik" "velero" "opencost" "trivy-system" "kube-state-metrics" "node-exporter" }}
@@ -92,7 +97,7 @@ spec:
         {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
         {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
       destination:
-        server: "{{ `{{server}}` }}"
+        server: "{{ `{{ .server }}` }}"
         namespace: "default"
       syncPolicy:
         automated:

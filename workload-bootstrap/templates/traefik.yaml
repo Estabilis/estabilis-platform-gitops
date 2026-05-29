@@ -46,8 +46,11 @@ spec:
               {{- include "workload-bootstrap.overrideValueFile" (dict "component" "traefik" "root" $) | nindent 14 }}
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "traefik" "root" $) | nindent 14 }}
             {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
-            parameters:
-              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+            {{- /* parameters only when provenance is set — a bare `parameters:`
+                   with an empty provenance include renders `null`, which the
+                   ApplicationSet schema rejects. provenanceParametersBlock emits
+                   the `parameters:` key only when there is content. */}}
+            {{- include "workload-bootstrap.provenanceParametersBlock" $ | nindent 12 }}
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}
           ref: values

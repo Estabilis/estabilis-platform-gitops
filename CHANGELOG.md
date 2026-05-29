@@ -11,6 +11,42 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.41.1] - 2026-05-29
+
+Fixes three defects in the v0.41.0 per-cluster ingress change that only surface
+at ArgoCD render/apply time (`helm template`/`lint` do not catch them). Validated
+live against the Transfero crypto workload cluster.
+
+### Fixed
+
+- **`parameters: null` on traefik / hubble-ui ApplicationSets.**
+  `workload-bootstrap/templates/traefik.yaml` and `hubble-ui.yaml` had
+  `parameters:` followed solely by the `provenanceParameters` include; on a
+  deployment without provenance (`.Values.global.provenance.gitRevision` unset)
+  the include is empty, so the applied manifest had `parameters: null`, which the
+  ApplicationSet schema rejects (`must be of type array`). Both now use the
+  existing `provenanceParametersBlock` helper, which omits the key entirely when
+  there is no provenance. (Latent since the provenance include was added;
+  surfaced by the v0.41.0 re-apply.)
+- **`get` fails in goTemplate ApplicationSets.**
+  `traefik-internal.yaml` read the fixed-ILB-IP annotation with
+  `get .metadata.annotations "…"`. ArgoCD passes `.metadata.annotations` as
+  `map[string]string`, but sprig's `get`/`dig` require `map[string]interface{}`,
+  so the generator failed with `RenderTemplateParamsError: wrong type for value`
+  and never produced the per-cluster Application. Switched to
+  `index .metadata.annotations "…"` (the pattern already used by
+  `cert-manager-config` / `hubble-ui-ingress`); `index` returns "" for an absent
+  key without tripping `missingkey=error`.
+- **`get` used in non-goTemplate ApplicationSets.**
+  `network-policies.yaml` and `resource-quotas.yaml` are clusters-generator
+  ApplicationSets that were **not** `goTemplate`, so the per-cluster
+  `components.traefik` / `components.traefik-internal` values written as
+  `{{ get .metadata.annotations … }}` were emitted as **literal strings** instead
+  of `true`/`false`. Both are now `goTemplate: true`
+  (`goTemplateOptions: ["missingkey=error"]`), their `{{name}}`/`{{server}}`
+  references converted to `{{ .name }}`/`{{ .server }}`, and the traefik gates read
+  via `index .metadata.annotations "…" | default "false"`.
+
 ## [0.41.0] - 2026-05-29
 
 ### Changed
