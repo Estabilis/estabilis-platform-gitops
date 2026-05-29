@@ -14,7 +14,7 @@
 # should pin to when reading $values. Kept in sync with the hub Application's
 # targetRevision so $values always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.40.2
+repoVersion: v0.41.0
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
@@ -92,9 +92,14 @@ components:
   hubble-ui: true            # ACNS: Cilium Hubble UI for network flow visualization
 
   # --- ingress (ADR 0014) ---
-  traefik: true              # ingress controller for exposure charts
-  traefik-internal: false    # optional: second Traefik for VNet-only exposures (ILB) — enable behind NVA or for split public/internal
-  hubble-ui-ingress: true    # Hubble UI external ingress (requires traefik)
+  # NOTE: these are GLOBAL kill-switches that decide whether the traefik /
+  # traefik-internal ApplicationSet is rendered at all. The actual PER-CLUSTER
+  # deployment is gated by the operator-stamped labels estabilis.io/ingress.* on
+  # each Cluster Secret (selector in templates/traefik{,-internal}.yaml), driven
+  # by the workload's traefik_enabled / traefik_internal_enabled (ADR 0010).
+  traefik: true              # render the public-Traefik ApplicationSet (per-cluster via label)
+  traefik-internal: true     # render the internal-Traefik ApplicationSet (per-cluster via label)
+  hubble-ui-ingress: true    # Hubble UI external ingress (per-cluster via hubble-ui-exposures)
 
 # ---------------------------------------------------------------------------
 # Downstream override repo (per-client configuration)

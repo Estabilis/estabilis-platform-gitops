@@ -11,6 +11,34 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-05-29
+
+### Changed
+
+- **Per-cluster ingress gating (root-cause fix).** `traefik` and `traefik-internal`
+  ApplicationSets are now gated **per cluster** instead of fleet-wide. The clusters
+  generator selector is extended with the operator-stamped labels
+  `estabilis.io/ingress.traefik` / `estabilis.io/ingress.traefik-internal` (derived
+  from the workload's `traefik_enabled` / `traefik_internal_enabled` via the bridge,
+  ADR 0010), so only opted-in clusters receive each Traefik instance. The global
+  `components.traefik` / `components.traefik-internal` toggles in `values.yaml` are now
+  kill-switches for whether the ApplicationSet renders at all (both default `true`).
+- `workload-bootstrap/templates/network-policies.yaml` and `resource-quotas.yaml`:
+  the `components.traefik` / `components.traefik-internal` chart parameters are now read
+  **per cluster** from the bridge annotations (`estabilis.io/bridge.traefik-enabled` /
+  `traefik-internal-enabled`, `default "false"`) instead of the fleet-wide values map.
+  The `traefik`-namespace NetworkPolicy/ResourceQuota only renders where ingress is
+  actually deployed on that cluster — fixes the chronic OutOfSync on clusters without
+  Traefik.
+
+### Added
+
+- `workload-bootstrap/templates/traefik-internal.yaml`: per-cluster fixed Internal
+  LoadBalancer IP via `service.spec.loadBalancerIP`, read from the bridge annotation
+  `estabilis.io/bridge.traefik-internal-lb-ip` (emitted by `estabilis-workload`
+  `traefik_internal_lb_ip`). Absent annotation → empty value → dynamic ILB IP
+  (brazilsouth/NAT-GW); set → fixed IP for the FortiGate DNAT topology (eastus2).
+
 ## [0.40.1] - 2026-05-27
 
 ### Fixed

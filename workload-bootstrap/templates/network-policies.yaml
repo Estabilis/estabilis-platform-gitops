@@ -65,11 +65,25 @@ spec:
               # The chart gates each policy on policies.{ns}.enabled AND
               # components.{ns} — both must be true for the policy to render.
               #
-              # Active components from workload-bootstrap values:
+              # Active components from workload-bootstrap values (fleet-wide).
+              # traefik / traefik-internal are intentionally SKIPPED here — they
+              # are per-cluster (set below from the cluster's own bridge
+              # annotations) so the traefik-ns policy only renders where ingress
+              # is actually deployed on that cluster (ADR 0010).
               {{- range $name, $enabled := .Values.components }}
+              {{- if not (has $name (list "traefik" "traefik-internal")) }}
               - name: components.{{ $name }}
                 value: {{ $enabled | quote }}
               {{- end }}
+              {{- end }}
+              # Per-cluster ingress gate. `default "false"` when the annotation is
+              # absent keeps the chart's `!= "false"` gate OFF.
+              - name: components.traefik
+                value: '{{ `{{ get .metadata.annotations "estabilis.io/bridge.traefik-enabled" | default "false" }}` }}'
+                forceString: true
+              - name: components.traefik-internal
+                value: '{{ `{{ get .metadata.annotations "estabilis.io/bridge.traefik-internal-enabled" | default "false" }}` }}'
+                forceString: true
               # Explicitly disable components NOT in the workload baseline.
               # Without this, the chart's default (true) would create
               # policies for platform-only namespaces that don't exist.

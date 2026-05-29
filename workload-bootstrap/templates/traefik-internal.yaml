@@ -23,6 +23,9 @@ spec:
         selector:
           matchLabels:
             {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+            # Per-cluster gate (ADR 0010): operator stamps this label from the
+            # bridge key traefik-internal-enabled. Only opted-in clusters match.
+            estabilis.io/ingress.traefik-internal: "true"
   template:
     metadata:
       name: "traefik-internal-{{ `{{ .name }}` }}"
@@ -45,6 +48,12 @@ spec:
               {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "traefik-internal" "root" $) | nindent 14 }}
             {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
             parameters:
+              # Per-cluster fixed ILB IP from the bridge annotation (NVA/FortiGate
+              # topology). `get` returns "" when the annotation is absent (operator
+              # drops empty bridge values) → empty loadBalancerIP = dynamic ILB IP.
+              - name: service.spec.loadBalancerIP
+                value: '{{ `{{ get .metadata.annotations "estabilis.io/bridge.traefik-internal-lb-ip" }}` }}'
+                forceString: true
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}

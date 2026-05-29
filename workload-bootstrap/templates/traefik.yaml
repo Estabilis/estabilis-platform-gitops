@@ -23,6 +23,9 @@ spec:
         selector:
           matchLabels:
             {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+            # Per-cluster gate (ADR 0010): operator stamps this label from the
+            # bridge key traefik-enabled. Only opted-in clusters get public Traefik.
+            estabilis.io/ingress.traefik: "true"
   template:
     metadata:
       name: "traefik-{{ `{{ .name }}` }}"
