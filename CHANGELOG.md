@@ -11,6 +11,23 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.41.2] - 2026-05-29
+
+### Fixed
+
+- `values/workload/cert-manager.yaml`: enable DNS-01 self-check against public
+  recursive nameservers on workload clusters
+  (`dns01RecursiveNameservers: "1.1.1.1:53,8.8.8.8:53"`,
+  `dns01RecursiveNameserversOnly: true`), mirroring `values/platform/cert-manager.yaml`.
+  Internal hostnames under `*.azure.<domain>` resolve only via Azure Private DNS
+  (split-horizon) and have no public A record. Without public recursive
+  nameservers, cert-manager's DNS-01 propagation self-check fails with
+  `Could not determine authoritative nameservers for _acme-challenge.<host>.azure.…`
+  and the certificate never issues (challenge stuck `pending`). Public resolvers
+  see the ACME challenge TXT in the public Cloudflare zone, so the cert issues
+  while the A record stays private. The hub already had this; workload clusters
+  were missing it.
+
 ## [0.41.1] - 2026-05-29
 
 Fixes three defects in the v0.41.0 per-cluster ingress change that only surface

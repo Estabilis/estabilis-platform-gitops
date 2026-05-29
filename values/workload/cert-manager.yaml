@@ -7,6 +7,17 @@ global:
 
 installCRDs: true
 
+# DNS-01 self-check via PUBLIC resolvers, not the cluster's (split-horizon) DNS.
+# Internal hostnames under *.azure.<domain> resolve only via Azure Private DNS and
+# have NO public A record (external-dns deliberately skips them). The ACME DNS-01
+# challenge TXT is still created in the public Cloudflare zone, so cert-manager's
+# propagation self-check must query public nameservers — otherwise it fails with
+# "Could not determine authoritative nameservers for _acme-challenge.<host>.azure.…"
+# and the certificate never issues (challenge stuck pending). Mirrors
+# values/platform/cert-manager.yaml — the hub already does exactly this.
+dns01RecursiveNameservers: "1.1.1.1:53,8.8.8.8:53"
+dns01RecursiveNameserversOnly: true
+
 replicaCount: 1
 
 serviceAccount:
