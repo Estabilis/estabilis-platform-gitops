@@ -11,6 +11,20 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.41.3] - 2026-05-29
+
+### Changed
+
+- `workload-bootstrap/templates/alloy.yaml`: the Alloy loki/mimir `remote_write`
+  push URLs now read the domain from the bridge annotation `hub-telemetry-domain`
+  instead of `domain`. This lets the workload's Terraform pick the network path
+  (internal split-horizon vs public) per environment via
+  `telemetry_use_internal` (estabilis-workload >= v3.3.0); the template stays
+  logic-free — it just substitutes `mimir.{hub-cluster-name}.{hub-telemetry-domain}`.
+  Requires the workload to emit the `hub-telemetry-domain` annotation; a
+  malformed `mimir..<domain>` previously also depended on the empty
+  `hub-cluster-name`, now sourced from the hub Key Vault.
+
 ## [0.41.2] - 2026-05-29
 
 ### Fixed
