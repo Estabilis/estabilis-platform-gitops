@@ -14,7 +14,7 @@
 # should pin to when reading $values. Kept in sync with the hub Application's
 # targetRevision so $values always matches the rendered templates.
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.42.0
+repoVersion: v0.42.1
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
@@ -80,8 +80,9 @@ components:
   cert-manager-config: true  # core: ClusterIssuers (Let's Encrypt via DNS-01)
   external-secrets: true     # core: secrets management via provider vault
   cluster-secret-store: true # core: ClusterSecretStore for external-secrets
-  external-dns: true         # core: automatic DNS record management (Azure DNS or Cloudflare)
-  external-dns-config: true  # core: provider-specific Secret for external-dns (Azure json or Cloudflare token via ESO)
+  external-dns: true          # core: automatic DNS record management (Azure DNS or Cloudflare)
+  external-dns-config: true   # core: provider-specific Secret for external-dns (Azure json or Cloudflare token via ESO)
+  external-dns-internal: true # render the internal (Azure Private DNS) external-dns ApplicationSet; per-cluster gate via label estabilis.io/addon.external-dns-internal
 
   # --- observability ---
   alloy: true                # observability: unified collector (logs + metrics → hub Loki/Mimir)
