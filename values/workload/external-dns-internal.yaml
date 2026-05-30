@@ -1,0 +1,49 @@
+# Workload overlay — INTERNAL external-dns (Azure Private DNS) for workload
+# clusters. Second external-dns instance, independent of the public Cloudflare
+# one (values/workload/external-dns.yaml). Publishes A records for internal
+# split-horizon hostnames (*.{cluster}.{internal_domain}) into the hub-owned
+# Azure Private DNS zone, reading the Service's actual ILB IP (works for both
+# fixed FortiGate-VIP and dynamic NAT-Gateway ILBs).
+#
+# Auth: Azure Workload Identity. The pod's ServiceAccount is federated to the
+# managed identity created by estabilis-workload (mi-<base>-external-dns-int),
+# which holds "Private DNS Zone Contributor" on the zone. tenantId,
+# subscriptionId, resourceGroup and the SA client-id annotation are injected
+# per-cluster as helm parameters from the cluster bridge annotations (see
+# workload-bootstrap/templates/external-dns-internal.yaml).
+provider:
+  name: azure-private-dns
+
+# Only Ingress: internal hostnames come from the exposure Ingresses (ADR 0014).
+# (Service is left out to avoid publishing internal LB Service IPs under
+# unintended names; Ingress carries the intended host.)
+sources:
+  - ingress
+
+policy: sync
+registry: txt
+
+# Azure provider config. useWorkloadIdentityExtension makes external-dns read
+# the federated token from the projected SA; the rest is injected per-cluster.
+azure:
+  useWorkloadIdentityExtension: true
+  tenantId: "PLACEHOLDER"
+  subscriptionId: "PLACEHOLDER"
+  resourceGroup: "PLACEHOLDER"
+
+serviceAccount:
+  create: true
+  name: external-dns-internal
+
+# Workload Identity: label required on the pod so the webhook injects the
+# projected token; the client-id annotation on the SA is set per-cluster.
+podLabels:
+  azure.workload.identity/use: "true"
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi

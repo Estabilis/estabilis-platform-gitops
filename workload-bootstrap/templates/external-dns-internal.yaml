@@ -1,0 +1,97 @@
+{{- /*
+  Internal external-dns (Azure Private DNS) for workload clusters.
+
+  Second external-dns instance, independent of the public Cloudflare one
+  (external-dns.yaml). Publishes A records for internal split-horizon hostnames
+  (*.{cluster}.{internal_domain}) into the hub-owned Azure Private DNS zone,
+  reading each Ingress's resolved LoadBalancer IP — so it works for both fixed
+  (FortiGate VIP) and dynamic (NAT-Gateway) internal ILBs.
+
+  Per-cluster gate: the operator stamps the label estabilis.io/addon.external-dns-internal
+  from the bridge key external-dns-internal-enabled (estabilis-workload >= v3.4.0,
+  operator >= v0.10.0). Only opted-in clusters match.
+
+  Auth: Azure Workload Identity. The managed identity (created by the workload TF,
+  Private DNS Zone Contributor on the zone) is referenced per-cluster via the
+  bridge annotations external-dns-internal-client-id / internal-dns-resource-group
+  / internal-dns-subscription-id / tenant-id.
+
+  Sync-wave 7 — same as the public external-dns.
+*/ -}}
+{{- if index .Values.components "external-dns-internal" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: external-dns-internal
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+            # Per-cluster gate (ADR 0010): operator stamps this label from the
+            # bridge key external-dns-internal-enabled.
+            estabilis.io/addon.external-dns-internal: "true"
+  template:
+    metadata:
+      name: "external-dns-internal-{{ `{{ .name }}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "7"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{ .name }}` }}"
+    spec:
+      project: workload-baseline
+      sources:
+        - repoURL: https://kubernetes-sigs.github.io/external-dns
+          chart: external-dns
+          targetRevision: "1.20.0"
+          helm:
+            releaseName: "external-dns-internal"
+            valueFiles:
+              - $values/values/workload/external-dns-internal.yaml
+              {{- include "workload-bootstrap.overrideValueFile" (dict "component" "external-dns-internal" "root" $) | nindent 14 }}
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "external-dns-internal" "root" $) | nindent 14 }}
+            {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
+            parameters:
+              # Filter to the internal zone (suffix match); txtOwnerId isolates
+              # this cluster's records from others sharing the zone.
+              - name: domainFilters[0]
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.internal-domain" }}` }}'
+              - name: txtOwnerId
+                value: '{{ `{{ .name }}` }}'
+              # Azure Workload Identity → the managed identity with Private DNS
+              # Zone Contributor on the hub zone (may be cross-RG / cross-sub).
+              - name: serviceAccount.annotations.azure\.workload\.identity/client-id
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.external-dns-internal-client-id" }}` }}'
+              - name: azure.tenantId
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.tenant-id" }}` }}'
+              - name: azure.subscriptionId
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.internal-dns-subscription-id" }}` }}'
+              - name: azure.resourceGroup
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.internal-dns-resource-group" }}` }}'
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+        {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{ .server }}` }}"
+        namespace: "external-dns-internal"
+      syncPolicy:
+        {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
+        automated:
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}
