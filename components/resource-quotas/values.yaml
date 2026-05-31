@@ -27,8 +27,10 @@ components:
   opencost: true
   velero: true
   external-dns: true
+  external-dns-internal: true
   node-exporter: true
   kube-state-metrics: true
+  alloy: true
   # AWS-only — DEFAULT FALSE on purpose.
   # Same rationale as the network-policies chart: the upstream platform-root
   # Application templates gate the Apps on `global.provider == "aws"`, so
@@ -197,6 +199,20 @@ namespaces:
       limits.memory: 2Gi
       pods: "10"
       persistentvolumeclaims: "5"
+  # Second external-dns (azure-private-dns) on workload clusters — single small
+  # Deployment, same footprint as external-dns above. Per-cluster opt-in
+  # (operator label estabilis.io/addon.external-dns-internal); the
+  # workload-bootstrap forwarding gates components.external-dns-internal on the
+  # cluster's bridge annotation, and the platform overlay disables it on the hub.
+  external-dns-internal:
+    enabled: true
+    hard:
+      requests.cpu: "500m"
+      requests.memory: 1Gi
+      limits.cpu: "2"
+      limits.memory: 2Gi
+      pods: "10"
+      persistentvolumeclaims: "5"
   node-exporter:
     enabled: true
     hard:
@@ -214,6 +230,21 @@ namespaces:
       limits.cpu: "2"
       limits.memory: 1Gi
       pods: "10"
+      persistentvolumeclaims: "5"
+  # Alloy telemetry collector — DaemonSet (one pod per node), workload clusters
+  # only (hub Alloy lives in the grafana namespace). Per-pod footprint
+  # ~60m/306Mi requests, ~600m/640Mi limits (alloy + config-reloader). Sized
+  # with headroom for ~13 nodes; larger clusters can bump via downstream
+  # overrides/resource-quotas/values.yaml. Disabled on the hub via the
+  # platform overlay (no standalone alloy namespace there).
+  alloy:
+    enabled: true
+    hard:
+      requests.cpu: "1"
+      requests.memory: 4Gi
+      limits.cpu: "6"
+      limits.memory: 8Gi
+      pods: "20"
       persistentvolumeclaims: "5"
   # AWS-only — namespaces only exist on AWS clusters with the relevant
   # feature flag (ingress_controller=alb for ALB controller, autoscaler=

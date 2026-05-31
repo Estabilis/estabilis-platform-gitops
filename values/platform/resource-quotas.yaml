@@ -1,1 +1,15 @@
-# Platform overlay for resource-quotas (empty — platform uses base defaults)
+# Platform overlay for resource-quotas.
+#
+# These namespaces only exist on workload clusters, never on the hub:
+#   - alloy: hub Alloy runs inside the grafana namespace (covered by the
+#     grafana quota); there is no standalone alloy namespace on the hub.
+#   - external-dns-internal: the second external-dns (azure-private-dns) is a
+#     per-cluster workload opt-in; the hub never gets this namespace.
+# Disable their quotas here so the chart does not emit a ResourceQuota /
+# LimitRange targeting a non-existent namespace (App OutOfSync). Mirrors the
+# same pattern in values/platform/network-policies.yaml.
+namespaces:
+  alloy:
+    enabled: false
+  external-dns-internal:
+    enabled: false

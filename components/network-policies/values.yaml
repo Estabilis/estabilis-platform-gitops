@@ -20,6 +20,7 @@ components:
   cert-manager: true
   external-secrets: true
   external-dns: true
+  external-dns-internal: true
   cnpg: true
   kyverno: true
   traefik: true
@@ -62,6 +63,8 @@ policies:
   external-secrets:
     enabled: true
   external-dns:
+    enabled: true
+  external-dns-internal:
     enabled: true
   cnpg-system:
     enabled: true

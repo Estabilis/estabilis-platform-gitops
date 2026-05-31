@@ -76,7 +76,7 @@ spec:
               # annotations) so the traefik-ns policy only renders where ingress
               # is actually deployed on that cluster (ADR 0010).
               {{- range $name, $enabled := .Values.components }}
-              {{- if not (has $name (list "traefik" "traefik-internal")) }}
+              {{- if not (has $name (list "traefik" "traefik-internal" "external-dns-internal")) }}
               - name: components.{{ $name }}
                 value: {{ $enabled | quote }}
               {{- end }}
@@ -88,6 +88,14 @@ spec:
                 forceString: true
               - name: components.traefik-internal
                 value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.traefik-internal-enabled" | default "false" }}` }}'
+                forceString: true
+              # Per-cluster gate for the internal external-dns namespace (opt-in
+              # via the operator label estabilis.io/addon.external-dns-internal,
+              # sourced from the bridge key external-dns-internal-enabled). Gated
+              # per-cluster — NOT fleet-wide — so the allow-external-dns-internal
+              # NetworkPolicy only renders on clusters where the namespace exists.
+              - name: components.external-dns-internal
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.external-dns-internal-enabled" | default "false" }}` }}'
                 forceString: true
               # Explicitly disable components NOT in the workload baseline.
               # Without this, the chart's default (true) would create

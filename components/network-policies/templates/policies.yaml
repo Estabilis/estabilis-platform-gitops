@@ -164,6 +164,34 @@ spec:
 {{- end }}
 ---
 # =============================================================================
+# external-dns-internal namespace
+# Second external-dns instance (provider=azure-private-dns) on workload
+# clusters, publishing split-horizon A records into the hub-owned Azure
+# Private DNS zone. Same egress shape as external-dns above: it must reach
+# the Kubernetes API server (Ingress informer) plus the Azure management
+# plane / IMDS for the azure-private-dns provider. Without this, the
+# Kyverno-generated default-deny-all leaves the pod with no egress and the
+# Ingress informer times out ("failed to sync *v1.Ingress: context deadline
+# exceeded") — same failure mode documented on the traefik policy below.
+# =============================================================================
+{{- if and (index .Values.policies "external-dns-internal").enabled (ne (index .Values.components "external-dns-internal" | toString) "false") }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-dns-internal
+  namespace: external-dns-internal
+  {{- include "estabilis.metadata" . | nindent 2 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+{{ include "network-policies.dns-egress" . }}
+    # All egress (Azure Private DNS API + Kubernetes API + IMDS)
+    - to: []
+{{- end }}
+---
+# =============================================================================
 # cnpg-system namespace
 # Needs broad egress: Azure Blob for WAL backup
 # Ingress: webhook, operator status, replication, postgres clients

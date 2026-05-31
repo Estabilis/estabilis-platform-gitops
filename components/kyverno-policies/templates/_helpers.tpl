@@ -9,6 +9,7 @@ Do NOT call directly in policy templates — use the full exclude helpers.
                 - cert-manager
                 - cnpg-system
                 - external-dns
+                - external-dns-internal
                 - external-secrets
                 - grafana
                 - karpenter

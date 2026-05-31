@@ -11,6 +11,43 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.42.2] - 2026-05-30
+
+### Fixed
+
+- `components/network-policies`: add an `allow-external-dns-internal` NetworkPolicy
+  for the `external-dns-internal` namespace (the second, Azure Private DNS
+  external-dns instance on workload clusters). The Kyverno `default-deny-all`
+  policy is generated into every namespace, but this one had no companion
+  allow rule, so its pod had zero egress and the Ingress informer timed out
+  (`failed to sync *v1.Ingress: context deadline exceeded`) → CrashLoopBackOff,
+  before it ever reached the Azure DNS API. Egress shape mirrors
+  `allow-external-dns` (DNS + all-egress for the Kubernetes API / Azure
+  management plane / IMDS). Gated by `policies.external-dns-internal.enabled`
+  AND `components.external-dns-internal`.
+- `values/platform/network-policies.yaml`: disable `policies.external-dns-internal`
+  on the hub (same rationale as `alloy`) — the `external-dns-internal` namespace
+  only exists on workload clusters, so rendering the policy on the hub would
+  target a non-existent namespace and leave the `network-policies` App OutOfSync.
+- `components/resource-quotas`: add `external-dns-internal` and `alloy` to the
+  `components` + `namespaces` maps so both workload-only namespaces get a
+  `ResourceQuota` + `LimitRange`. They were previously unregistered, tripping
+  the Kyverno `require-resource-quotas` / `require-limit-ranges` audit policies.
+  `values/platform/resource-quotas.yaml` disables both on the hub (neither
+  namespace exists there — hub Alloy runs in `grafana`, internal external-dns is
+  workload-only) to avoid quotas targeting non-existent namespaces.
+- `components/kyverno-policies`: add `external-dns-internal` to
+  `excluded-namespace-list` (`_helpers.tpl`). It is a platform-managed namespace
+  running the upstream external-dns image (tag-based, no digest), so it belongs
+  in the same hardening-exclusion set as `external-dns` — clearing the
+  `require-image-digest` audit finding.
+- `workload-bootstrap/templates/{network-policies,resource-quotas}.yaml`: gate
+  `components.external-dns-internal` per-cluster from the bridge annotation
+  `external-dns-internal-enabled` (mirroring `traefik-internal`) instead of
+  forwarding it fleet-wide. The internal external-dns is a per-cluster opt-in, so
+  its NetworkPolicy / quota must only render on clusters where the namespace
+  actually exists — otherwise opted-out workload clusters would go OutOfSync.
+
 ## [0.41.3] - 2026-05-29
 
 ### Changed
