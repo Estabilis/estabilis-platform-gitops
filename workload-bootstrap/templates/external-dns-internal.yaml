@@ -67,12 +67,14 @@ spec:
               # Zone Contributor on the hub zone (may be cross-RG / cross-sub).
               - name: serviceAccount.annotations.azure\.workload\.identity/client-id
                 value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.external-dns-internal-client-id" }}` }}'
-              - name: azure.tenantId
-                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.tenant-id" }}` }}'
-              - name: azure.subscriptionId
-                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.internal-dns-subscription-id" }}` }}'
-              - name: azure.resourceGroup
-                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.internal-dns-resource-group" }}` }}'
+              # /etc/kubernetes/azure.json for the azure-private-dns provider,
+              # provisioned by the chart's secretConfiguration (the kubernetes-sigs
+              # chart has no top-level `azure:` block). Built per-cluster from the
+              # bridge annotations; identity comes from the federated SA token
+              # (useWorkloadIdentityExtension) so no client secret is stored.
+              - name: secretConfiguration.data.azure\.json
+                value: '{{ `{"tenantId":"{{ index .metadata.annotations "estabilis.io/bridge.tenant-id" }}","subscriptionId":"{{ index .metadata.annotations "estabilis.io/bridge.internal-dns-subscription-id" }}","resourceGroup":"{{ index .metadata.annotations "estabilis.io/bridge.internal-dns-resource-group" }}","useWorkloadIdentityExtension":true}` }}'
+                forceString: true
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}

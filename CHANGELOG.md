@@ -11,6 +11,25 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.42.3] - 2026-05-31
+
+### Fixed
+
+- `external-dns-internal`: provision `/etc/kubernetes/azure.json` so the
+  `azure-private-dns` provider can authenticate. The values used a top-level
+  `azure:` block (a Bitnami-chart feature) which the kubernetes-sigs external-dns
+  chart silently ignores, so no cloud config file was ever mounted and the pod
+  crashed with `failed to read Azure config file '/etc/kubernetes/azure.json'`.
+  Switched `values/workload/external-dns-internal.yaml` to the chart's
+  `secretConfiguration` (mounted at `/etc/kubernetes`), and the
+  `workload-bootstrap` ApplicationSet now injects
+  `secretConfiguration.data.azure\.json` per-cluster from the bridge annotations
+  (`tenant-id`, `internal-dns-subscription-id`, `internal-dns-resource-group`,
+  `useWorkloadIdentityExtension: true`). Identity still comes from the federated
+  SA token (Workload Identity), so no client secret is stored. Only surfaced
+  once v0.42.2 unblocked the egress NetworkPolicy and the pod got past the
+  Ingress informer sync.
+
 ## [0.42.2] - 2026-05-30
 
 ### Fixed

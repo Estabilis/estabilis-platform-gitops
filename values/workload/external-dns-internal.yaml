@@ -23,13 +23,19 @@ sources:
 policy: sync
 registry: txt
 
-# Azure provider config. useWorkloadIdentityExtension makes external-dns read
-# the federated token from the projected SA; the rest is injected per-cluster.
-azure:
-  useWorkloadIdentityExtension: true
-  tenantId: "PLACEHOLDER"
-  subscriptionId: "PLACEHOLDER"
-  resourceGroup: "PLACEHOLDER"
+# Azure cloud config. The kubernetes-sigs external-dns chart does NOT consume a
+# top-level `azure:` block (that is a Bitnami-chart feature) — it provisions the
+# /etc/kubernetes/azure.json the azure-private-dns provider reads via
+# `secretConfiguration`. The file content (tenantId / subscriptionId /
+# resourceGroup + useWorkloadIdentityExtension) is injected per-cluster by the
+# ApplicationSet as the `secretConfiguration.data.azure\.json` parameter from
+# the cluster bridge annotations. With useWorkloadIdentityExtension the pod's
+# federated SA token (azure.workload.identity/use label + client-id annotation)
+# supplies the identity — no client secret in the file.
+secretConfiguration:
+  enabled: true
+  mountPath: /etc/kubernetes
+  data: {}
 
 serviceAccount:
   create: true
