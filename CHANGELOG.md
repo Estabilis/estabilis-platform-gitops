@@ -11,6 +11,22 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.42.4] - 2026-05-31
+
+### Fixed
+
+- `external-dns-internal`: pass the `azure.json` content via the ApplicationSet
+  `helm.valuesObject` instead of a `--set-string` parameter. v0.42.3 injected
+  `secretConfiguration.data.azure\.json` as a Helm parameter, but ArgoCD renders
+  parameters as `--set-string`, and the JSON value (which contains commas) was
+  split into a list — breaking manifest generation entirely with
+  `secret.yaml ... wrong type for value; expected string; got []interface {}`,
+  so the app could not sync at all. `valuesObject` is written to a values file,
+  keeping `azure.json` a single string. Verified end-to-end: the pod
+  authenticates via Workload Identity and creates the internal A record (e.g.
+  `hubble.<cluster>.azure.<domain>` → traefik-internal ILB IP), resolvable from
+  the cluster's VNet-linked Private DNS zone.
+
 ## [0.42.3] - 2026-05-31
 
 ### Fixed

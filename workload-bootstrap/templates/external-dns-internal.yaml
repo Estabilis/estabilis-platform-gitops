@@ -67,15 +67,20 @@ spec:
               # Zone Contributor on the hub zone (may be cross-RG / cross-sub).
               - name: serviceAccount.annotations.azure\.workload\.identity/client-id
                 value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.external-dns-internal-client-id" }}` }}'
-              # /etc/kubernetes/azure.json for the azure-private-dns provider,
-              # provisioned by the chart's secretConfiguration (the kubernetes-sigs
-              # chart has no top-level `azure:` block). Built per-cluster from the
-              # bridge annotations; identity comes from the federated SA token
-              # (useWorkloadIdentityExtension) so no client secret is stored.
-              - name: secretConfiguration.data.azure\.json
-                value: '{{ `{"tenantId":"{{ index .metadata.annotations "estabilis.io/bridge.tenant-id" }}","subscriptionId":"{{ index .metadata.annotations "estabilis.io/bridge.internal-dns-subscription-id" }}","resourceGroup":"{{ index .metadata.annotations "estabilis.io/bridge.internal-dns-resource-group" }}","useWorkloadIdentityExtension":true}` }}'
-                forceString: true
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+            # /etc/kubernetes/azure.json for the azure-private-dns provider,
+            # provisioned by the chart's secretConfiguration (the kubernetes-sigs
+            # chart has no top-level `azure:` block). Passed via valuesObject — NOT
+            # a Helm parameter — because the JSON value contains commas, which
+            # ArgoCD's `--set-string` splits into a list, and the chart's
+            # secret.yaml then rejects it ("wrong type for value; expected string;
+            # got []interface {}"). valuesObject is written to a values file, so
+            # azure.json stays a single string. Identity comes from the federated
+            # SA token (useWorkloadIdentityExtension) — no client secret stored.
+            valuesObject:
+              secretConfiguration:
+                data:
+                  azure.json: '{{ `{"tenantId":"{{ index .metadata.annotations "estabilis.io/bridge.tenant-id" }}","subscriptionId":"{{ index .metadata.annotations "estabilis.io/bridge.internal-dns-subscription-id" }}","resourceGroup":"{{ index .metadata.annotations "estabilis.io/bridge.internal-dns-resource-group" }}","useWorkloadIdentityExtension":true}` }}'
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}
           ref: values
