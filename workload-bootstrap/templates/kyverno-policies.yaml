@@ -75,13 +75,18 @@ spec:
       ignoreDifferences:
         - group: kyverno.io
           kind: ClusterPolicy
-          jqPathExpressions:
-            # Kyverno admission controller mutates ClusterPolicies after
-            # apply, injecting default fields not present in our manifests.
-            - .spec.admission
-            - .spec.emitWarning
-            - .spec.rules[].skipBackgroundRequests
-            - .spec.rules[].validate.allowExistingViolations
+          # Ignore the fields Kyverno's admission controller mutates after apply
+          # (admission, emitWarning, rules[].skipBackgroundRequests,
+          # rules[].validate.allowExistingViolations) by FIELD MANAGER, not by
+          # jqPathExpressions. jqPath expressions that target array items
+          # (.spec.rules[]...) combined with RespectIgnoreDifferences pin the
+          # whole .spec.rules array to the LIVE state, silently suppressing every
+          # legitimate change to the rules (e.g. excluded-namespace-list edits) —
+          # the policy then stays frozen at generation 1 and never updates.
+          # managedFieldsManagers ignores exactly what the `kyverno` manager wrote
+          # without pinning the array, so our own changes still apply.
+          managedFieldsManagers:
+            - kyverno
         # ADR 0005 L1 provenance annotations (built-at, build-id, etc.)
         # are handled globally via argocd-cm resource.customizations.ignoreDifferences.all
       syncPolicy:

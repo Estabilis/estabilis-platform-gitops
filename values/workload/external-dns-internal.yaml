@@ -11,6 +11,15 @@
 # subscriptionId, resourceGroup and the SA client-id annotation are injected
 # per-cluster as helm parameters from the cluster bridge annotations (see
 # workload-bootstrap/templates/external-dns-internal.yaml).
+# Pin the image by digest (manifest-list / multi-arch). The chart's image
+# helper renders `repository:tag`, and `tag: "vX.Y.Z@sha256:..."` produces the
+# valid OCI reference `repository:vX.Y.Z@sha256:...` — digest-pinned and
+# satisfying the require-image-digest Kyverno policy. Digest is the multi-arch
+# index for v0.20.0 (amd64/arm64/arm-v7), so it resolves on any node arch.
+# When bumping the chart's appVersion, refresh this digest too.
+image:
+  tag: "v0.20.0@sha256:ddc7f4212ed09a21024deb1f470a05240837712e74e4b9f6d1f2632ff10672e7"
+
 provider:
   name: azure-private-dns
 

@@ -11,6 +11,26 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.42.5] - 2026-05-31
+
+### Fixed
+
+- `kyverno-policies`: replace the `ignoreDifferences` `jqPathExpressions` (which
+  targeted `.spec.rules[]` array items) with `managedFieldsManagers: [kyverno]`.
+  Combined with `RespectIgnoreDifferences=true` + ServerSideApply, the array
+  jqPath expressions pinned the entire `.spec.rules` array to the live state, so
+  ArgoCD silently dropped every legitimate change to the rules — the ClusterPolicies
+  were frozen at `generation: 1` and the v0.42.2 `excluded-namespace-list` edit
+  (and any future policy change) never applied, leaving the apps perpetually
+  OutOfSync. Ignoring by field manager skips exactly what Kyverno's admission
+  controller mutates without pinning the array, so our changes sync normally.
+- `external-dns-internal`: pin the image by digest. The chart renders
+  `repository:tag`, so `image.tag: "v0.20.0@sha256:ddc7f42…"` yields the valid
+  OCI reference `…/external-dns:v0.20.0@sha256:ddc7f42…` — digest-pinned (the
+  multi-arch manifest-list index, so it resolves on any node arch) and satisfying
+  the `require-image-digest` policy on its own merits rather than only via the
+  namespace exclusion.
+
 ## [0.42.4] - 2026-05-31
 
 ### Fixed
