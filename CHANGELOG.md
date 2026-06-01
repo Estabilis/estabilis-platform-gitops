@@ -11,6 +11,26 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.42.6] - 2026-06-01
+
+### Fixed
+
+- `kyverno-policies`: the real fix for the ClusterPolicy drift. Revert v0.42.5's
+  `managedFieldsManagers` (which never matched — Kyverno applies its defaults as
+  untracked object defaults, owned by no field manager) back to
+  `jqPathExpressions`, AND remove `RespectIgnoreDifferences=true` from
+  `syncOptions`. Root cause: `RespectIgnoreDifferences` + jqPathExpressions that
+  target `.spec.rules[]` array items make ArgoCD pin the whole `.spec.rules`
+  array to the live state, silently blocking every legitimate rule change (the
+  v0.42.2 `excluded-namespace-list` edit never applied; policies froze and the
+  apps stayed perpetually OutOfSync, on the hub too). `RespectIgnoreDifferences`
+  is redundant with ServerSideApply — verified by server-side dry-run: a plain
+  SSA apply lands the rule change AND preserves the Kyverno-defaulted fields
+  (no churn). So `jqPathExpressions` keeps the diff display clean while SSA-only
+  lets rule changes flow. The hub copy in
+  `estabilis-platform/bootstrap/platform-root/templates/kyverno.yaml` gets the
+  same `RespectIgnoreDifferences` removal.
+
 ## [0.42.5] - 2026-05-31
 
 ### Fixed

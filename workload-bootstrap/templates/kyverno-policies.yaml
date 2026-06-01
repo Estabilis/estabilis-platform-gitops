@@ -75,18 +75,16 @@ spec:
       ignoreDifferences:
         - group: kyverno.io
           kind: ClusterPolicy
-          # Ignore the fields Kyverno's admission controller mutates after apply
-          # (admission, emitWarning, rules[].skipBackgroundRequests,
-          # rules[].validate.allowExistingViolations) by FIELD MANAGER, not by
-          # jqPathExpressions. jqPath expressions that target array items
-          # (.spec.rules[]...) combined with RespectIgnoreDifferences pin the
-          # whole .spec.rules array to the LIVE state, silently suppressing every
-          # legitimate change to the rules (e.g. excluded-namespace-list edits) —
-          # the policy then stays frozen at generation 1 and never updates.
-          # managedFieldsManagers ignores exactly what the `kyverno` manager wrote
-          # without pinning the array, so our own changes still apply.
-          managedFieldsManagers:
-            - kyverno
+          # Hide the fields Kyverno's admission controller mutates after apply
+          # so the app shows Synced. These MUST stay jqPathExpressions (ignore by
+          # path), not managedFieldsManagers: Kyverno applies these as object
+          # defaults that are NOT tracked under any field manager, so a
+          # managedFieldsManagers:[kyverno] entry never matches them.
+          jqPathExpressions:
+            - .spec.admission
+            - .spec.emitWarning
+            - .spec.rules[].skipBackgroundRequests
+            - .spec.rules[].validate.allowExistingViolations
         # ADR 0005 L1 provenance annotations (built-at, build-id, etc.)
         # are handled globally via argocd-cm resource.customizations.ignoreDifferences.all
       syncPolicy:
@@ -100,6 +98,13 @@ spec:
             factor: 2
             maxDuration: 3m
         syncOptions:
+          # ServerSideApply ONLY — do NOT add RespectIgnoreDifferences. SSA
+          # already preserves the Kyverno-mutated fields (owned/defaulted server
+          # side), so it is redundant; worse, RespectIgnoreDifferences combined
+          # with the jqPathExpressions above (which target .spec.rules[] array
+          # items) makes ArgoCD pin the entire .spec.rules array to the live
+          # state, silently blocking every legitimate rule change
+          # (e.g. excluded-namespace-list edits) and freezing the policies. With
+          # SSA alone, rule changes apply and the ignored defaults survive.
           - ServerSideApply=true
-          - RespectIgnoreDifferences=true
 {{- end }}
