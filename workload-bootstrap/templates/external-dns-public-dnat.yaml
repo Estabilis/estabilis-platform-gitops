@@ -1,0 +1,115 @@
+{{- /*
+  Public external-dns — DNAT-gateway (FortiGate/NVA) variant.
+
+  Mutually exclusive with external-dns.yaml (the BASE public external-dns):
+  - BASE selects clusters where estabilis.io/addon.public-dns DoesNotExist.
+  - THIS selects clusters where estabilis.io/addon.public-dns == "true".
+  Exactly one of the two matches each workload cluster, so a cluster runs a
+  single external-dns release named "external-dns" either way.
+
+  Per-cluster gate (ADR 0010): the operator stamps estabilis.io/addon.public-dns
+  from the bridge key public-dns-enabled (= workload TF var public_ingress_ip
+  is non-empty). Only clusters fronted by a DNAT gateway opt in.
+
+  Delta vs BASE (the split-DNS fix for spoke clusters behind FortiGate):
+    - excludeDomains[0] = the internal split-horizon domain → stop *.azure.<domain>
+      from leaking into the public (Cloudflare) zone.
+    - extraArgs --default-targets=<ingress-public-ip VIP> + --force-default-targets
+      → publish the public gateway VIP instead of the private ILB the Service
+      status carries. force is REQUIRED: --default-targets alone is only a
+      fallback and does not override an already-derivable target (the private
+      ILB). external-dns 0.20.0 / chart 1.20.0.
+  These three params are UNCONDITIONAL here because this AppSet only ever targets
+  clusters that carry the VIP (ingress-public-ip) + internal-domain annotations —
+  so no empty-value/no-op-filler problem (ArgoCD goTemplate cannot conditionally
+  omit a list item; gating is done by the selector, not in the template).
+
+  Forward-compatible with ADR 0039: when the two-lane bridge lands, the
+  addon.public-dns gate label becomes estabilis.io/capability.<name> by prefix
+  convention and this variant can fold back into a single catalog entry.
+
+  Sync-wave 7 — same as the base public external-dns.
+*/ -}}
+{{- if index .Values.components "external-dns" }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: external-dns-public-dnat
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+            # Per-cluster gate: operator stamps this from bridge key
+            # public-dns-enabled (workload TF var public_ingress_ip != "").
+            estabilis.io/addon.public-dns: "true"
+  template:
+    metadata:
+      # Same name + releaseName as the BASE variant: a cluster runs ONE
+      # external-dns release. Selectors are mutually exclusive, so only one
+      # AppSet generates this Application per cluster. NOTE: when a cluster first
+      # acquires the addon.public-dns label, ownership of external-dns-<cluster>
+      # hands over from the base AppSet (prunes) to this one (adopts) — a
+      # one-time, transient handover per cluster at cutover.
+      name: "external-dns-{{ `{{ .name }}` }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "7"
+      labels:
+        estabilis.io/workload-cluster: "{{ `{{ .name }}` }}"
+    spec:
+      project: workload-baseline
+      sources:
+        - repoURL: https://kubernetes-sigs.github.io/external-dns
+          chart: external-dns
+          targetRevision: "1.20.0"
+          helm:
+            releaseName: "external-dns"
+            valueFiles:
+              - $values/values/workload/external-dns.yaml
+              - $values/values/workload/external-dns-{{ `{{ index .metadata.annotations "estabilis.io/bridge.dns-provider" }}` }}.yaml
+              {{- include "workload-bootstrap.overrideValueFile" (dict "component" "external-dns" "root" $) | nindent 14 }}
+              {{- include "workload-bootstrap.gitopsValueFile" (dict "component" "external-dns" "root" $) | nindent 14 }}
+            {{- include "workload-bootstrap.ignoreMissingValueFiles" . | nindent 12 }}
+            parameters:
+              - name: domainFilters[0]
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.domain" }}` }}'
+              - name: txtOwnerId
+                value: '{{ `{{ .name }}` }}'
+              - name: serviceAccount.annotations.azure\.workload\.identity/client-id
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.external-dns-client-id" }}` }}'
+              - name: zoneIdFilters[0]
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.cloudflare-zone-id" }}` }}'
+              # --- DNAT split-DNS delta (vs BASE) ---
+              - name: excludeDomains[0]
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.internal-domain" }}` }}'
+              - name: extraArgs[0]
+                value: '--default-targets={{ `{{ index .metadata.annotations "estabilis.io/bridge.ingress-public-ip" }}` }}'
+              - name: extraArgs[1]
+                value: '--force-default-targets'
+              {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
+        - repoURL: {{ .Values.repoURL | quote }}
+          targetRevision: {{ .Values.repoVersion | quote }}
+          ref: values
+        {{- include "workload-bootstrap.overrideSource" . | nindent 8 }}
+        {{- include "workload-bootstrap.gitopsSource" . | nindent 8 }}
+      destination:
+        server: "{{ `{{ .server }}` }}"
+        namespace: "external-dns"
+      syncPolicy:
+        {{- include "workload-bootstrap.managedNamespaceMetadata" . | nindent 8 }}
+        automated:
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}

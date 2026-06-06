@@ -13,6 +13,14 @@ spec:
         selector:
           matchLabels:
             {{- toYaml .Values.clusterSelector.matchLabels | nindent 12 }}
+          # Mutually exclusive with external-dns-public-dnat.yaml: clusters whose
+          # operator stamped estabilis.io/addon.public-dns (DNAT/FortiGate
+          # topology, from bridge key public-dns-enabled) get the public-DNAT
+          # variant instead — this BASE variant covers everyone else (incl.
+          # NAT-Gateway clusters). Exactly one of the two matches each cluster.
+          matchExpressions:
+            - key: estabilis.io/addon.public-dns
+              operator: DoesNotExist
   template:
     metadata:
       name: "external-dns-{{ `{{ .name }}` }}"
