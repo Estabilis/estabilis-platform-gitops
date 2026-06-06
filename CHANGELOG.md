@@ -11,6 +11,29 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.42.7] - 2026-06-06
+
+### Added
+
+- **`external-dns-public-dnat` ApplicationSet** — public external-dns variant for
+  workload clusters fronted by a DNAT gateway (FortiGate/NVA). Selected by the
+  per-cluster gate label `estabilis.io/addon.public-dns` (stamped by
+  estabilis-workload-operator >= v0.10.4 from the `public-dns-enabled` bridge
+  key set by estabilis-workload >= v3.5.1). On top of the base public
+  external-dns it adds `excludeDomains[0]` = the internal split-horizon domain
+  (`bridge.internal-domain`) and `extraArgs` `--default-targets=<bridge.ingress-public-ip>`
+  + `--force-default-targets`, so the public (Cloudflare) zone publishes the
+  gateway VIP instead of the private ILB and stops leaking the `.azure` internal
+  hostnames.
+
+### Changed
+
+- **Base `external-dns` ApplicationSet** now carries a `matchExpressions` selector
+  `estabilis.io/addon.public-dns DoesNotExist`, making it mutually exclusive with
+  `external-dns-public-dnat`: exactly one external-dns variant targets each
+  workload cluster. Clusters without the label (incl. NAT-Gateway topology) keep
+  the existing base behavior unchanged.
+
 ## [0.42.6] - 2026-06-01
 
 ### Fixed
