@@ -51,6 +51,13 @@ spec:
                 value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.external-dns-client-id" }}` }}'
               - name: zoneIdFilters[0]
                 value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.cloudflare-zone-id" }}` }}'
+              # Never publish the internal split-horizon domain to the public DNS
+              # (Cloudflare): *.{internal-domain} is owned by external-dns-internal
+              # (Azure Private DNS). Without this the public external-dns leaks the
+              # internal hosts (pointing at the ILB private IP) into the public zone.
+              # Mirrors the external-dns-public-dnat variant (minus --force-default-targets).
+              - name: excludeDomains[0]
+                value: '{{ `{{ index .metadata.annotations "estabilis.io/bridge.internal-domain" }}` }}'
               {{- include "workload-bootstrap.provenanceParameters" $ | nindent 14 }}
         - repoURL: {{ .Values.repoURL | quote }}
           targetRevision: {{ .Values.repoVersion | quote }}

@@ -11,6 +11,19 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.42.8] - 2026-06-07
+
+### Fixed
+
+- **Base `external-dns` (public/Cloudflare) now excludes the internal split-horizon
+  domain.** Added `excludeDomains[0] = bridge.internal-domain` to the base
+  `external-dns` ApplicationSet parameters (mirrors `external-dns-public-dnat`,
+  without `--force-default-targets`). Without it, a base-variant cluster (no
+  FortiGate, e.g. brazilsouth crypto) published its `*.{internal-domain}` hosts
+  into the public Cloudflare zone pointing at the ILB private IP — a leak. The
+  internal hosts remain owned by `external-dns-internal` (Azure Private DNS).
+  No effect on clusters whose `internal-domain` bridge key is empty.
+
 ## [0.42.7] - 2026-06-06
 
 ### Added
