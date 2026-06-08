@@ -13,8 +13,13 @@
 # Version of this repo (estabilis-platform-gitops) that nested Applications
 # should pin to when reading $values. Kept in sync with the hub Application's
 # targetRevision so $values always matches the rendered templates.
+# ⚠️ DEVE ser bumpado em TODO release — senão mudanças em values/workload/*.yaml
+# NÃO propagam (o chart vem da nova versão via platformGitopsVersion, mas os
+# AppSets filhos leem $values daqui). Ficou preso em v0.42.7 e o fix do traefik
+# (v0.42.9) não chegou aos workloads até este bump. (Idealmente o platform-root
+# passaria repoVersion = platformGitopsVersion p/ eliminar este footgun.)
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.42.7
+repoVersion: v0.42.10
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
