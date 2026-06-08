@@ -11,6 +11,19 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.42.10] - 2026-06-08
+
+### Fixed
+
+- **`workload-bootstrap.repoVersion` bumped to v0.42.10** (was stuck at `v0.42.7`).
+  Nested Applications read their `$values` (e.g. `values/workload/traefik.yaml`)
+  from this revision, NOT from the chart's own `targetRevision`. It is a manually
+  kept literal and was not bumped for 0.42.8/0.42.9, so the **v0.42.9 public-Traefik
+  `ingressClass` fix never reached the workloads** (template/parameter changes
+  propagate with the chart version; values-file changes propagate via `repoVersion`).
+  This release makes `repoVersion` match so the Traefik fix lands. Follow-up: have
+  `platform-root` pass `repoVersion = platformGitopsVersion` to remove this footgun.
+
 ## [0.42.9] - 2026-06-08
 
 ### Fixed
