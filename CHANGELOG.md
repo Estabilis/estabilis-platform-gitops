@@ -11,6 +11,22 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.42.9] - 2026-06-08
+
+### Fixed
+
+- **Public workload Traefik now filters by `ingressClass: traefik`.** The public
+  and internal Traefik share the controller `traefik.io/ingress-controller` and
+  `traefik` is the default IngressClass, so without a provider `ingressClass`
+  filter the public Traefik also claimed the `traefik-internal` Ingresses and
+  wrote its public LB IP into their `.status`, fighting the internal Traefik. The
+  internal Ingress status (and the Azure Private DNS records published from it)
+  flapped between the ILB IP and the public LB IP — internal hostnames
+  intermittently resolved to the PUBLIC IP. `values/workload/traefik.yaml` now
+  sets `providers.{kubernetesIngress,kubernetesCRD}.ingressClass: traefik`,
+  mirroring the `traefik-internal` overlay. Only affects clusters running the
+  public Traefik (e.g. brazilsouth crypto); backward-compatible.
+
 ## [0.42.8] - 2026-06-07
 
 ### Fixed

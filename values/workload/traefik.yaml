@@ -29,11 +29,19 @@ service:
     externalTrafficPolicy: Local
 
 providers:
+  # ingressClass FILTER: este Traefik público processa SÓ a classe `traefik`.
+  # Sem o filtro ele reivindica também os Ingress `traefik-internal` (as duas
+  # IngressClasses compartilham o controller traefik.io/ingress-controller, e
+  # `traefik` é a default) e escreve seu publishedService no status deles —
+  # brigando com o Traefik interno → o status IP dos Ingress internos flapa entre
+  # o ILB e o LB público. Espelha o filtro do overlay traefik-internal.
   kubernetesCRD:
     enabled: true
     allowCrossNamespace: true
+    ingressClass: traefik
   kubernetesIngress:
     enabled: true
+    ingressClass: traefik
 
 logs:
   general:
