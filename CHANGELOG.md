@@ -11,6 +11,8 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-08-11
+
 ### Fixed
 
 - `components/cert-manager-config`: the ExternalSecret branch of
