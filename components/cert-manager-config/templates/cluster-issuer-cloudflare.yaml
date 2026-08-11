@@ -12,7 +12,10 @@ type: Opaque
 stringData:
   api-token: {{ .Values.global.cloudflareApiToken | quote }}
 {{- else }}
-{{- /* Workload path: token in workload Key Vault, read by ExternalSecrets. */ -}}
+{{- /* Secret-store path: token stays in the store, ESO materialises the
+       Secret. `remoteRef.key` comes from values so AWS deployments can pass
+       the full Secrets Manager path — a bare name only resolves against
+       Azure Key Vault, where names are flat. */ -}}
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
@@ -30,7 +33,7 @@ spec:
   data:
     - secretKey: api-token
       remoteRef:
-        key: cloudflare-api-token
+        key: {{ (default dict .Values.kvSecrets).cloudflareApiToken | default "cloudflare-api-token" | quote }}
 {{- end }}
 ---
 apiVersion: cert-manager.io/v1

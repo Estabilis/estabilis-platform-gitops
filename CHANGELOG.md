@@ -11,6 +11,21 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+### Fixed
+
+- `components/cert-manager-config`: the ExternalSecret branch of
+  `cluster-issuer-cloudflare.yaml` hardcoded `remoteRef.key:
+  cloudflare-api-token`. That is a flat Azure Key Vault name; on AWS the
+  external-secrets IRSA role is scoped to `estabilis/<deploymentId>/*`, so a
+  bare key never resolves and the branch was unusable — leaving AWS
+  deployments on the direct-injection path, which writes the token in
+  cleartext onto the Application spec.
+
+  The key now comes from `kvSecrets.cloudflareApiToken`, defaulting to the
+  previous literal so Azure behaviour is unchanged. `platform-root` in
+  estabilis-platform >= the companion release passes the prefixed Secrets
+  Manager path on AWS.
+
 ## [0.42.10] - 2026-06-08
 
 ### Fixed
