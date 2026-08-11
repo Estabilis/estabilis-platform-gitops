@@ -5,7 +5,17 @@ global:
   subscriptionId: ""        # used when dnsProvider=azure
   resourceGroup: ""         # used when dnsProvider=azure
   domain: ""
-  cloudflareApiToken: ""    # used when dnsProvider=cloudflare
+  cloudflareApiToken: ""    # used when dnsProvider=cloudflare — DIRECT injection (cleartext)
+
+# Secret-store path (used when global.cloudflareApiToken is empty): the name
+# or path of the secret holding the token.
+#
+# The default is the flat Azure Key Vault name this chart has always used. On
+# AWS, secrets live under `estabilis/<deploymentId>/*` — the IRSA scope of the
+# external-secrets role — so a bare name never resolves; platform-root
+# overrides this with the prefixed path.
+kvSecrets:
+  cloudflareApiToken: "cloudflare-api-token"
 identity:
   certManager:
     clientId: ""            # used when dnsProvider=azure
