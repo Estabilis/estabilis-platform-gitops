@@ -1,0 +1,54 @@
+# DigitalOcean-specific overlay for HashiCorp Vault.
+# Loaded in addition to vault.yaml when global.provider=digitalocean.
+#
+# Auto-unseal: GCP Cloud KMS via `seal "gcpckms"` in the Raft HCL config. The
+# full `server.ha.raft.config` block, and the Workload Identity Federation
+# wiring that lets Vault reach that key, are INJECTED by
+# `bootstrap/platform-root/templates/vault.yaml` (DigitalOcean branch). This
+# file carries only what is NOT injected.
+#
+# WHY GOOGLE KMS ON A DIGITALOCEAN CLUSTER
+#
+#   Auto-unseal needs a KMS the cluster can reach and that survives the cluster
+#   itself. DigitalOcean has no managed key management service, so there is no
+#   in-provider option — the alternatives are an external KMS or manual unseal
+#   with operator-held key shares on every pod restart. GCP Cloud KMS is the
+#   external KMS this platform standardises on for DigitalOcean.
+#
+#   The cross-cloud dependency is real and worth stating plainly: a Vault on
+#   DigitalOcean cannot unseal while Google KMS is unreachable. That is the
+#   price of not holding unseal shares by hand, and it is the same shape of
+#   dependency AWS and Azure deployments already have on their own KMS.
+#
+# NO STATIC CREDENTIAL REACHES THIS CLUSTER
+#
+#   Vault authenticates to Google through Workload Identity Federation: a
+#   projected ServiceAccount token, audience-scoped to the WIF provider, is
+#   exchanged for a short-lived Google token, which then impersonates the
+#   service account that holds encrypt/decrypt on the key. No service account
+#   JSON key exists, so there is none to leak or rotate.
+#
+#   The credential configuration file that describes that exchange carries no
+#   private key — Google documents it as non-confidential — which is why it is
+#   mounted from a ConfigMap rather than a Secret.
+#
+# Required IAM on the key (per Vault's gcpckms documentation):
+#   cloudkms.cryptoKeyVersions.useToEncrypt
+#   cloudkms.cryptoKeyVersions.useToDecrypt
+#   cloudkms.cryptoKeys.get
+# — i.e. roles/cloudkms.cryptoKeyEncrypterDecrypter plus cryptoKeys.get.
+
+server:
+  # PVC storage class — empty so the cluster default is used. On DOKS that is
+  # `do-block-storage`, which is what the Raft data volume wants. Override per
+  # cluster via the client repo's `overrides/vault/values.yaml`.
+  dataStorage:
+    storageClass: ""
+
+  # No cloud-IAM annotation here, and that is not an omission. IRSA and Azure
+  # Workload Identity attach an identity to the ServiceAccount because the pod
+  # authenticates as itself to a KMS in the same cloud. Here the identity is
+  # federated to a different cloud, so it arrives as a mounted token and a
+  # credential configuration rather than an annotation.
+  serviceAccount:
+    create: true
