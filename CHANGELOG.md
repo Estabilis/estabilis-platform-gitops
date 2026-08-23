@@ -11,6 +11,8 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.44.0]
+
 ### Added
 
 - `values/platform/vault-digitalocean.yaml` — Vault overlay for the
