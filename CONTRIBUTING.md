@@ -90,16 +90,29 @@ Release cadence:
 # 1. Move [Unreleased] entries in CHANGELOG.md to the new version header
 # 2. Bump version + appVersion in workload-bootstrap/Chart.yaml
 # 3. Bump repoVersion in workload-bootstrap/values.yaml
-# 4. Commit
+# 4. Commit — the SUBJECT MATTERS, see below
 git add CHANGELOG.md workload-bootstrap/
-git commit -m "release: vX.Y.Z"
+git commit -m "chore(release): vX.Y.Z"
 
-# 5. Tag
-git tag vX.Y.Z
-
-# 6. Push
-git push origin main --tags
+# 5. Push. No manual tag.
+git push origin main
 ```
+
+`.github/workflows/release.yaml` watches `main` for a commit whose subject is
+exactly `chore(release): vX.Y.Z`. It creates the annotated tag and publishes a
+GitHub Release with the CHANGELOG section between `## [X.Y.Z]` and the next
+`## [`.
+
+Two failure modes worth knowing, because neither reports an error:
+
+- **A different subject.** `release: vX.Y.Z` does not match, so the workflow
+  runs, matches nothing, and exits green. No tag, no Release. If you then tag by
+  hand the tag exists and the Release page does not, which is how the two get
+  out of step.
+- **A squash merge.** GitHub rewrites the subject to
+  `chore(release): vX.Y.Z (#NNN)`, and the regex is anchored at both ends, so
+  the tag is silently not created. Release commits go straight to `main`;
+  feature PRs are what get squashed.
 
 Consumers pin the version via `repoVersion: "vX.Y.Z"` in their
 `workload-bootstrap` values overlay. An upstream bump without a
