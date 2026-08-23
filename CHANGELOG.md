@@ -11,6 +11,20 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+### Added
+
+- `values/platform/vault-digitalocean.yaml` — Vault overlay for the
+  DigitalOcean provider. Auto-unseal uses GCP Cloud KMS (`seal "gcpckms"`),
+  reached through Workload Identity Federation, because DigitalOcean has no
+  managed key management service. No static Google credential is placed in the
+  cluster: a projected ServiceAccount token is exchanged for a short-lived one.
+  The seal stanza and the federation wiring are injected by platform-root's
+  DigitalOcean branch; this file carries only the static bits, mirroring
+  `vault-aws.yaml` and `vault-azure.yaml`.
+
+  Purely additive — no existing file changes, and no AWS or Azure deployment
+  loads this overlay.
+
 ## [0.43.0] - 2026-08-11
 
 ### Fixed
