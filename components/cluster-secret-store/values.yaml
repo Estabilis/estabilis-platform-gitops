@@ -3,6 +3,11 @@
 # Provider selection (v0.34.0+):
 #   - provider: azure  (default, backward-compatible)  → uses Azure Key Vault
 #   - provider: aws                                    → uses AWS Secrets Manager
+#   - provider: gcpsm                                  → uses GCP Secret Manager
+#
+# `provider` names the SECRET BACKEND, not the cloud the cluster runs on. A
+# DigitalOcean cluster reading from Google Secret Manager sets `gcpsm`; that
+# case is why the value is not a cloud name.
 #
 # Azure + AWS share the same multi-store semantics; each provider reads
 # a provider-specific subset of fields. When `stores` is empty the
@@ -42,6 +47,53 @@ aws:
     name: external-secrets
     namespace: external-secrets
 
+# --------------------- GCP Secret Manager provider --------------------
+#
+# Required when provider=gcpsm.
+#
+# Authentication is Workload Identity Federation, NOT `workloadIdentity`.
+# The latter is GKE-only — it reads cluster metadata from the GCE metadata
+# server, which a non-Google node does not have. Federation is what ESO
+# documents for "AKS, EKS, self-hosted clusters, and OpenShift", and it needs
+# no key: ESO exchanges a bound Kubernetes ServiceAccount token for a Google
+# access token.
+#
+# THE TWO AUDIENCES ARE DIFFERENT VALUES, and swapping them fails at the
+# token exchange rather than at render:
+#
+#   gcpsm.audience
+#     The STS audience, in the `//iam.googleapis.com/projects/<NUMBER>/
+#     locations/global/workloadIdentityPools/<POOL>/providers/<PROVIDER>`
+#     form.
+#
+#   gcpsm.serviceAccount.audiences
+#     The `aud` claim the projected Kubernetes token carries. Google requires
+#     the `https://iam.googleapis.com/...` form when the pool provider sets no
+#     allowedAudiences. Leave empty only if the provider was configured to
+#     accept something else.
+#
+# gcpServiceAccountEmail makes ESO impersonate a Google service account after
+# federating, so reads are authorised by THAT account's IAM bindings —
+# typically roles/secretmanager.secretAccessor scoped to one secret. Optional;
+# left empty, the federated principal must hold the permission itself.
+#
+# NOT CONFIGURABLE HERE, and it will refuse the exchange on its own: the pool
+# provider's attributeCondition must admit the `sub` of the ServiceAccount
+# below. That is Terraform's side, and it is evaluated before IAM.
+
+gcpsm:
+  projectID: ""
+  audience: ""
+  gcpServiceAccountEmail: ""
+
+  # ESO's OWN ServiceAccount. The operator's mounted token cannot be used as
+  # the subject token — the upstream API documents that explicitly — so this
+  # must name the controller's account, not a per-workload one.
+  serviceAccount:
+    name: external-secrets
+    namespace: external-secrets
+    audiences: []
+
 # ---------------------- Multi-store list ------------------------------
 #
 # Each entry:
@@ -49,6 +101,8 @@ aws:
 #   - vaultUrl: (azure only) https://<kvname>.vault.azure.net/
 #   - tenantId: (azure only, optional) falls back to top-level `tenantId`
 #   - region:   (aws only, optional) falls back to top-level `region`
+#   - projectID / audience / gcpServiceAccountEmail:
+#               (gcpsm only, optional) fall back to the `gcpsm` block
 #
 # Example (Azure):
 #
