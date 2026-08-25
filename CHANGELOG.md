@@ -40,6 +40,17 @@ and the corresponding commit messages.
   Single-store and multi-store modes mirror the `aws` and `azure` branches. The
   `azure` default is unchanged; existing deployments render exactly as before.
 
+### Fixed
+
+- `components/external-dns-config` — the ExternalSecret's `remoteRef.key` was
+  hardcoded to the flat name `cloudflare-api-token`, so the AWS path was
+  silently wrong: platform-root has been passing
+  `kvSecrets.cloudflareApiToken` with the full Secrets Manager path since
+  v0.62.0 and this template ignored it, looking up a name that only resolves
+  against Azure Key Vault. Now configurable, with the same default and the same
+  shape `cert-manager-config` took in v0.42.11 — Azure deployments are
+  unaffected.
+
 ## [0.44.0]
 
 ### Added

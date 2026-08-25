@@ -35,6 +35,12 @@ spec:
   data:
     - secretKey: api-token
       remoteRef:
-        key: cloudflare-api-token
+        {{- /* Was hardcoded, which made the AWS path silently wrong: platform-root
+               has been passing kvSecrets.cloudflareApiToken with the full Secrets
+               Manager path since v0.62.0 and this template ignored it, looking up
+               a flat name that only resolves against Azure Key Vault. Same fix
+               cert-manager-config took in v0.42.11, and the same default, so
+               Azure deployments are unaffected. */}}
+        key: {{ (default dict .Values.kvSecrets).cloudflareApiToken | default "cloudflare-api-token" | quote }}
 {{- end }}
 {{- end }}
