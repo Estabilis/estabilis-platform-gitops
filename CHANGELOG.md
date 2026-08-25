@@ -11,6 +11,8 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.45.0]
+
 ### Added
 
 - `components/cluster-secret-store` — `provider: gcpsm`, a ClusterSecretStore

@@ -19,7 +19,7 @@
 # (v0.42.9) não chegou aos workloads até este bump. (Idealmente o platform-root
 # passaria repoVersion = platformGitopsVersion p/ eliminar este footgun.)
 repoURL: https://github.com/Estabilis/estabilis-platform-gitops.git
-repoVersion: v0.44.0
+repoVersion: v0.45.0
 
 # Version of estabilis-platform (the HUB-side repo) that rendered this chart.
 # Passed as a helm parameter by the parent Application
