@@ -11,6 +11,46 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+### Added
+
+- `components/cluster-secret-store` — `provider: gcpsm`, a ClusterSecretStore
+  backed by Google Secret Manager. `provider` here names the secret BACKEND,
+  not the cloud the cluster runs on, so a DigitalOcean cluster reading from
+  Google sets `gcpsm`; that case is why the value is not a cloud name.
+
+  DigitalOcean has no managed secret store, and Vault — the platform's intended
+  one — arrives at wave 6, while cert-manager needs its DNS-01 token at wave 2.
+  Without a store before Vault, that token travels in cleartext on an
+  Application spec.
+
+  Authentication is `workloadIdentityFederation`, not `workloadIdentity`: the
+  latter is GKE-only, reading cluster metadata from the GCE metadata server that
+  a non-Google node does not have. No key is placed in the cluster — a bound
+  ServiceAccount token is exchanged for a short-lived Google one, and
+  `gcpServiceAccountEmail` impersonates a service account so reads are
+  authorised by its bindings (typically `secretmanager.secretAccessor` scoped to
+  one secret).
+
+  Both audiences are configurable and they are DIFFERENT values —
+  `gcpsm.audience` is the STS audience (`//iam.googleapis.com/...`) and
+  `gcpsm.serviceAccount.audiences` is the `aud` of the projected Kubernetes
+  token (`https://iam.googleapis.com/...`). Swapping them fails at the token
+  exchange, not at render.
+
+  Single-store and multi-store modes mirror the `aws` and `azure` branches. The
+  `azure` default is unchanged; existing deployments render exactly as before.
+
+### Fixed
+
+- `components/external-dns-config` — the ExternalSecret's `remoteRef.key` was
+  hardcoded to the flat name `cloudflare-api-token`, so the AWS path was
+  silently wrong: platform-root has been passing
+  `kvSecrets.cloudflareApiToken` with the full Secrets Manager path since
+  v0.62.0 and this template ignored it, looking up a name that only resolves
+  against Azure Key Vault. Now configurable, with the same default and the same
+  shape `cert-manager-config` took in v0.42.11 — Azure deployments are
+  unaffected.
+
 ## [0.44.0]
 
 ### Added
