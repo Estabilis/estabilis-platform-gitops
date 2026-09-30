@@ -16,6 +16,31 @@
 
 provider: azure
 
+# --------------------- Namespace conditions ---------------------------
+#
+# A ClusterSecretStore with no `spec.conditions` can be referenced by an
+# ExternalSecret in ANY namespace. For the platform store that means any
+# application namespace can read any platform secret the controller's identity
+# can read — a DNS token, a Grafana admin password. `conditions` restricts
+# which namespaces may use the store; it is passed through verbatim as the ESO
+# `spec.conditions` list, so every field ESO supports works here
+# (`namespaces`, `namespaceSelector`, `namespaceRegexes`). A namespace matching
+# ANY entry is allowed.
+#
+# Empty (the default) renders no `conditions` — the store stays usable from
+# every namespace, exactly as before this option existed.
+#
+# Applies to the single `platform-secret-store`. In multi-store mode an entry's
+# own `stores[].conditions` wins, and an entry without one falls back to this.
+# The Vault `app-secret-store` has its own `vault.conditions`.
+#
+# Example:
+#
+# conditions:
+#   - namespaces: [argocd, cert-manager, external-dns, grafana]
+
+conditions: []
+
 # --------------------- Azure provider ---------------------------------
 #
 # Required when provider=azure.
@@ -103,6 +128,8 @@ gcpsm:
 #   - region:   (aws only, optional) falls back to top-level `region`
 #   - projectID / audience / gcpServiceAccountEmail:
 #               (gcpsm only, optional) fall back to the `gcpsm` block
+#   - conditions: (optional, every provider) falls back to top-level
+#               `conditions`
 #
 # Example (Azure):
 #
@@ -162,6 +189,11 @@ vault:
   # KV-v2 at `secret/`.
   path: "secret"
   version: "v2"
+
+  # Namespaces allowed to use this store, passed through as ESO
+  # `spec.conditions` (see the top-level `conditions` for the fields). Empty
+  # renders none: usable from every namespace, as before.
+  conditions: []
 
   # Auth via Vault's kubernetes auth method.
   auth:
