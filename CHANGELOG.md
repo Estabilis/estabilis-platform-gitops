@@ -11,6 +11,8 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+## [0.46.0]
+
 ### Added
 
 - `components/cluster-secret-store` — optional namespace `conditions` on every
