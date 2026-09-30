@@ -11,6 +11,23 @@ and the corresponding commit messages.
 
 ## [Unreleased]
 
+### Added
+
+- `components/cluster-secret-store` — optional namespace `conditions` on every
+  store the chart renders: top-level `conditions` for the `platform-secret-store`
+  (all providers), `stores[].conditions` per entry in multi-store mode (falling
+  back to the top-level list), and `vault.conditions` for `app-secret-store`.
+  Passed through verbatim as ESO `spec.conditions`, so `namespaces`,
+  `namespaceSelector` and `namespaceRegexes` all work.
+
+  Without it a ClusterSecretStore is usable from any namespace, and an
+  application namespace can read every platform secret the controller's
+  identity can reach.
+
+  Additive: with the defaults (empty lists) the render is byte-identical to
+  v0.45.0 for `azure`, `aws` and `gcpsm`, single- and multi-store, with and
+  without Vault.
+
 ## [0.45.0]
 
 ### Added
